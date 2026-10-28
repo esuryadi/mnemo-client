@@ -12,7 +12,7 @@ account settings and use memory sharing, without writing any HTTP code.
 
 ```xml
 <dependency>
-    <groupId>com.panaxon.ai</groupId>
+    <groupId>ai.panaxon</groupId>
     <artifactId>mnemo-client</artifactId>
     <version>1.0.0</version>
 </dependency>

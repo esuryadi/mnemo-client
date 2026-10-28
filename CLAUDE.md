@@ -1,7 +1,9 @@
 # CLAUDE.md — mnemo-client
 
 Public client libraries for the MNEMO REST API (backend lives in the separate `mnemo` repo,
-module `mnemo-rest`). Apache 2.0, published to Maven Central as `com.panaxon.ai:mnemo-client`.
+module `mnemo-rest`). Apache 2.0, published to Maven Central as `ai.panaxon:mnemo-client`
+(namespace `ai.panaxon`, verified in the Central Portal). The Java *packages* stay `com.panaxon.ai.*` — the
+`groupId` and the package names are independent, and renaming packages would break every consumer's imports.
 
 ## Layout
 

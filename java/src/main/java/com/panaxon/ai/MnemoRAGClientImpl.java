@@ -26,6 +26,9 @@
 package com.panaxon.ai;
 
 import com.panaxon.ai.exception.MnemoClientException;
+import com.panaxon.ai.model.RagQueryResponse;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.GenericType;
 
 /**
  * <b>MnemoRAGClientImpl</b> is a concrete implementation of the {@link MnemoRAGClient} interface.
@@ -35,10 +38,32 @@ import com.panaxon.ai.exception.MnemoClientException;
  * @author edward.suryadi
  * @since 1.0
  */
-class MnemoRAGClientImpl implements MnemoRAGClient {
+class MnemoRAGClientImpl extends AbstractMnemoClient implements MnemoRAGClient {
+    private final Builder builder;
+
+    MnemoRAGClientImpl(Builder builder) {
+        super(builder);
+        this.builder = builder;
+    }
+
+    /** Dispatches to the method that implements the operation chosen on the builder. */
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T execute() throws MnemoClientException {
-        // Implementation logic here
-        return null;
+        Operation operation = builder.operation();
+        if (operation == null) {
+            throw invalid("operation is required");
+        }
+        return (T) withTarget(base -> switch (operation) {
+            case QUERY -> query(base);
+        });
+    }
+
+    private RagQueryResponse query(WebTarget base) throws MnemoClientException {
+        return send("POST", base.path("mnemo/rag/{ragId}")
+                        .resolveTemplate("ragId", require(builder.ragId(), "ragId")),
+                body("query", require(builder.query(), "query"),
+                        "additionalContext", builder.additionalContext()),
+                new GenericType<RagQueryResponse>() { });
     }
 }

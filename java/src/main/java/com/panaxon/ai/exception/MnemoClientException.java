@@ -28,21 +28,44 @@ package com.panaxon.ai.exception;
 /**
  * <b>MnemoClientException</b> is a custom exception class that represents errors specific to the MNEMO client operations.
  * It extends the standard {@link Exception} class and provides constructors for creating exceptions with messages
- * and causes.
+ * and causes. When the failure came from the MNEMO service, {@link #getHttpStatus()} carries the HTTP status.
  *
  * @author edward.suryadi
  * @since 1.0
  */
 public class MnemoClientException extends Exception {
+    private final transient MnemoError error;
+    private final int httpStatus;
+
     public MnemoClientException(MnemoError error) {
+        this(error, 0);
+    }
+
+    public MnemoClientException(MnemoError error, int httpStatus) {
         super(error.message());
+        this.error = error;
+        this.httpStatus = httpStatus;
     }
 
     public MnemoClientException(MnemoError error, Throwable cause) {
         super(error.message(), cause);
+        this.error = error;
+        this.httpStatus = 0;
     }
 
     public MnemoClientException(Throwable cause) {
         super(cause);
+        this.error = null;
+        this.httpStatus = 0;
+    }
+
+    /** @return the structured error, or {@code null} when this exception only wraps a cause */
+    public MnemoError getError() {
+        return error;
+    }
+
+    /** @return the HTTP status returned by the MNEMO service, or {@code 0} when no response was received */
+    public int getHttpStatus() {
+        return httpStatus;
     }
 }

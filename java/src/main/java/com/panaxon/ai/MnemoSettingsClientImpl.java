@@ -26,6 +26,11 @@
 package com.panaxon.ai;
 
 import com.panaxon.ai.exception.MnemoClientException;
+import com.panaxon.ai.model.SettingsResponse;
+import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.GenericType;
+
+import java.util.Map;
 
 /**
  * <b>MnemoSettingsClientImpl</b> is a concrete implementation of the {@link MnemoSettingsClient} interface.
@@ -35,10 +40,46 @@ import com.panaxon.ai.exception.MnemoClientException;
  * @author edward.suryadi
  * @since 1.0
  */
-class MnemoSettingsClientImpl implements MnemoSettingsClient {
+class MnemoSettingsClientImpl extends AbstractMnemoClient implements MnemoSettingsClient {
+    private final Builder builder;
+
+    MnemoSettingsClientImpl(Builder builder) {
+        super(builder);
+        this.builder = builder;
+    }
+
+    /** Dispatches to the method that implements the operation chosen on the builder. */
     @Override
+    @SuppressWarnings("unchecked")
     public <T> T execute() throws MnemoClientException {
-        // Implementation logic here
-        return null;
+        Operation operation = builder.operation();
+        if (operation == null) {
+            throw invalid("operation is required");
+        }
+        return (T) withTarget(base -> switch (operation) {
+            case GET_SETTINGS -> getSettings(base);
+            case UPDATE_SETTINGS -> updateSettings(base);
+            case GET_OPTIONS -> getOptions(base);
+        });
+    }
+
+    private SettingsResponse getSettings(WebTarget base) throws MnemoClientException {
+        return send("GET", base.path("mnemo/account/{id}/settings")
+                .resolveTemplate("id", require(builder.accountId(), "accountId")),
+                null, new GenericType<SettingsResponse>() { });
+    }
+
+    private SettingsResponse updateSettings(WebTarget base) throws MnemoClientException {
+        return send("PUT", base.path("mnemo/account/{id}/settings")
+                .resolveTemplate("id", require(builder.accountId(), "accountId")),
+                body("provider", builder.provider(), "model", builder.model(),
+                        "ingestModel", builder.ingestModel(), "apiKey", builder.providerApiKey(),
+                        "lookbackDays", builder.lookbackDays(), "encryptData", builder.encryptData(),
+                        "sharedMemoryTtlHours", builder.sharedMemoryTtlHours()),
+                new GenericType<SettingsResponse>() { });
+    }
+
+    private Map<String, Object> getOptions(WebTarget base) throws MnemoClientException {
+        return send("GET", base.path("mnemo/account/settings/options"), null, MAP);
     }
 }

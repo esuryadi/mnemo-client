@@ -27,7 +27,16 @@ package com.panaxon.ai.exception;
 
 public record MnemoError(Code code, String message, String... args) {
     public enum Code {
-        UNDEFINED_ERROR("MNERR-0000", "Undefined error");
+        UNDEFINED_ERROR("MNERR-0000", "Undefined error"),
+        INVALID_REQUEST("MNERR-0001", "Invalid request"),
+        MISSING_API_KEY("MNERR-0002", "API key is required"),
+        UNAUTHORIZED("MNERR-0401", "Missing or invalid API key"),
+        FORBIDDEN("MNERR-0403", "Access denied or plan does not include this feature"),
+        NOT_FOUND("MNERR-0404", "Resource not found"),
+        RATE_LIMITED("MNERR-0429", "Rate limit or quota exceeded"),
+        SERVER_ERROR("MNERR-0500", "MNEMO server error"),
+        IO_ERROR("MNERR-0600", "Unable to reach the MNEMO service"),
+        SERIALIZATION_ERROR("MNERR-0601", "Unable to read the MNEMO response");
 
         private String code;
         private String defaultMessage;

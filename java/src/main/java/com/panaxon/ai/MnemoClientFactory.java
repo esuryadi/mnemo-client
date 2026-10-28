@@ -37,7 +37,7 @@ public class MnemoClientFactory {
      * @return A new instance of MnemoClient.
      * @throws MnemoClientException If the builder is null or if there is an error during client creation.
      */
-    static public MnemoClient create(MnemoClientBuilder builder) throws MnemoClientException {
+    static public MnemoClient create(MnemoClientBuilder<?> builder) throws MnemoClientException {
         if (builder == null) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.UNDEFINED_ERROR, "MnemoClientBuilder cannot be null"));
         }

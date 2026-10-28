@@ -1,0 +1,58 @@
+/*
+ * Copyright (c) 2026, PANAXON.AI, LLC. All rights reserved.
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Multi-Dimensional Neural Elastic Memory Organization (MNEMO) - Java core implementation.
+ *
+ * Inventor: Edward Suryadi
+ * Assignee: PANAXON.AI, LLC
+ *
+ * Author: edward.suryadi
+ * Since: Oct-2026
+ */
+
+package com.panaxon.ai.exception;
+
+public record MnemoError(Code code, String message, String... args) {
+    public enum Code {
+        UNDEFINED_ERROR("MNERR-0000", "Undefined error");
+
+        private String code;
+        private String defaultMessage;
+
+        Code(String code, String defaultMessage) {
+            this.code = code;
+            this.defaultMessage = defaultMessage;
+        }
+
+        public String getCode() {
+            return code;
+        }
+
+        public String getDefaultMessage() {
+            return defaultMessage;
+        }
+    }
+
+    public String message() {
+        if (message == null) {
+            return code.getDefaultMessage();
+        }
+        if (args != null && args.length > 0) {
+            return String.format(message, (Object[]) args);
+        }
+        return message;
+    }
+}

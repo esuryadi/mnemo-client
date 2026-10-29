@@ -47,8 +47,9 @@ ChatMessageResponse reply = client.execute();
 System.out.println(reply.message());
 ```
 
-Skipping the initialization step does not fail: the service answers HTTP 200 with the text "This session has not
-been initialized yet", and nothing is saved.
+Skipping the initialization step fails: the service refuses the chat with HTTP 409 and the message "This session
+has not been initialized yet. Please call /init/stream first.", which the client raises as a `MnemoClientException`
+(`getHttpStatus()` is 409, and the error code is `INVALID_REQUEST`). Nothing is saved.
 
 Declare the client as the `MnemoClient` interface: every builder's `build()` returns a `MnemoClient`, so your
 code does not depend on a specific implementation. `execute()` is generic, so the result type is inferred from

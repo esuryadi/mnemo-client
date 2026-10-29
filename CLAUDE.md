@@ -43,9 +43,10 @@ Commands (run from `java/`):
   parameters with `require(...)` *before* sending, so bad input never costs a request.
 - Optional query params / body fields must be omitted when null (`query(...)`, `body(...)` helpers) — RESTEasy
   throws on null query values, and the server treats a sent null differently from an absent field.
-- A chat session must be initialized (`INIT_SESSION`) before its first `CHAT`; the service otherwise returns HTTP 200
-  with a "not been initialized" message and saves nothing. Never treat a 200 chat reply as proof the chat worked —
-  assert on the content.
+- A chat session must be initialized (`INIT_SESSION`) before its first `CHAT`. The service now refuses a chat on an
+  uninitialized session with HTTP 409 (mnemo PR #95, deployed 2026-10-29); until then it answered 200 with a "not
+  been initialized" text and saved nothing, which is how an early integration test passed without ever getting a
+  real reply. Still assert on the content of a chat reply, not just on success.
 - Build a fresh JAX-RS `Client` per `execute()` (done in `withTarget`); do not cache one on the instance.
 - `FAIL_ON_UNKNOWN_PROPERTIES` stays **off** (`MnemoObjectMapperProvider`): a newer server must not break an older client.
 - Javadoc example code in `<pre>{@code ...}</pre>`: write a line-leading `@` as `&#64;`, and keep generics inside

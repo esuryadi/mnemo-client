@@ -118,7 +118,7 @@ class MnemoClientIT {
                     .build().execute();
             assertEquals(session, reply.sessionId());
             assertNotNull(reply.message());
-            // the service answers HTTP 200 with this text when the session was not initialized, so a 200 proves nothing
+            // older deployments answered HTTP 200 with this text for an uninitialized session; a 200 alone proves nothing
             assertFalse(reply.message().contains("not been initialized"), reply.message());
             assertFalse(reply.message().isBlank());
         } finally {

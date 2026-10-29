@@ -35,5 +35,30 @@ differs for TypeScript.
   subject name becomes `%2F`. Query strings go through `query()`, which keeps insertion order and drops
   `null`/`undefined`. The tests assert exact query strings.
 - Node 18 is the floor (`fetch`, `AbortSignal.timeout`). The package is ESM only.
-- Not published to npm yet. `@panaxon/mnemo-client` is a placeholder name: check that the scope is available
-  before the first publish.
+- `LICENSE` here is a copy of the repo root's, because npm only packs files inside `typescript/`. `files` in
+  `package.json` limits the tarball to `dist/` and `LICENSE` (plus `package.json` and the README, always included);
+  the publish workflow fails if anything else gets in.
+- The README is the package page on npmjs.com, where relative links outside `typescript/` break: link the rest of
+  the repo with absolute GitHub URLs.
+
+## Release (npm, `@panaxon/mnemo-client`)
+
+Not published yet. Released by hand from GitHub: Actions -> "Publish TypeScript client" -> Run workflow
+(`dry_run` first). `.github/workflows/typescript-publish.yml` has the details. It refuses a pre-release version or one
+already on npm, and npm never accepts a version twice (not even after an unpublish), so a real run is
+**irreversible**: bump `version` in `package.json` first.
+
+One-time setup, done by a maintainer on npmjs.com:
+
+1. An account with two-factor authentication, and the organization `panaxon` (owns the `@panaxon` scope).
+2. The first publish: npm only offers trusted publishing on a package that already exists, so either store an npm
+   granular access token as the repo secret `NPM_TOKEN`, or run `npm publish --access public` once from a
+   maintainer's machine (that release then has no provenance).
+3. Then package settings -> Trusted publisher -> GitHub Actions: repository `esuryadi/mnemo-client`, workflow
+   `typescript-publish.yml`, environment `npm`, and delete the `NPM_TOKEN` secret.
+
+After every release, run `smoke-test/verify-npm.sh <version> --wait`. It installs the release from the real registry
+into an empty project with an empty npm cache, checks the files, the registry signature and the provenance
+attestation, then type-checks `SmokeTest.ts` with `skipLibCheck` off and runs it (a health check and a bad-key 401,
+neither of which costs LLM budget). After the first release, change the README's Install section to
+`npm install @panaxon/mnemo-client`, and the status in the root README and in Dorothy's Help (`HelpModal.tsx`).

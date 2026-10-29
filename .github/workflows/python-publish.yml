@@ -1,0 +1,112 @@
+# Manually publishes the Python client to PyPI as mnemo-client.
+#
+# Run it from GitHub: Actions -> "Publish Python client" -> Run workflow (branch: main).
+# It only publishes a version that is not on the chosen index yet, so bump __version__ in
+# python/src/mnemo_client/__init__.py (pyproject.toml reads it from there), push to main, then run it. PyPI never
+# accepts the same version twice, even after a delete, so a release is irreversible.
+#
+# "dry_run" tests, builds and checks the sdist and wheel but does not upload, to rehearse a release.
+# "index: testpypi" uploads to test.pypi.org instead, to rehearse the upload itself.
+#
+# Authentication is PyPI trusted publishing, so there is no secret. Configure it once per index (pypi.org and
+# test.pypi.org are separate accounts): Account -> Publishing -> Add a new pending publisher -> GitHub, project
+# mnemo-client, owner esuryadi, repository mnemo-client, workflow python-publish.yml, environment pypi (or testpypi).
+name: Publish Python client
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Test, build and check only - do not upload"
+        type: boolean
+        default: false
+      index:
+        description: "Where to upload"
+        type: choice
+        options: [pypi, testpypi]
+        default: pypi
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-publish
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    strategy:
+      matrix:
+        python: ["3.9", "3.14"] # the oldest supported version and a current one
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Run unit tests
+        run: PYTHONPATH=src:tests python -m unittest discover -s tests
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Check this version is new
+        run: |
+          VERSION=$(PYTHONPATH=src python -c 'import mnemo_client; print(mnemo_client.__version__)')
+          echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "::error::Refusing to release '$VERSION'"; exit 1; }
+          HOST=$([ "${{ inputs.index }}" = "testpypi" ] && echo test.pypi.org || echo pypi.org)
+          URL="https://$HOST/pypi/mnemo-client/$VERSION/json"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "mnemo-client $VERSION -> $URL -> HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "::error::mnemo-client $VERSION is already on $HOST. Bump __version__ first."; exit 1
+          elif [ "$STATUS" != "404" ]; then
+            echo "::error::Could not tell whether $VERSION is published (HTTP $STATUS); not publishing."; exit 1
+          fi
+
+      - name: Build the sdist and wheel
+        run: python -m pip install --upgrade build twine && python -m build
+
+      - name: Check the distributions
+        run: |
+          twine check --strict dist/*
+          unzip -l dist/*.whl | grep -q 'mnemo_client/py.typed' || { echo "::error::py.typed is missing from the wheel"; exit 1; }
+          unzip -l dist/*.whl | grep -q 'licenses/LICENSE' || { echo "::error::LICENSE is missing from the wheel"; exit 1; }
+          python -m venv /tmp/wheel-check && /tmp/wheel-check/bin/pip install -q dist/*.whl
+          cd /tmp && /tmp/wheel-check/bin/python -I -c 'import mnemo_client; print("imports", mnemo_client.__version__)'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: python-dist
+          path: python/dist/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.index }}
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: python-dist
+          path: dist/
+      - name: Publish to ${{ inputs.index }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ inputs.index == 'testpypi' && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}

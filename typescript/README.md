@@ -9,7 +9,7 @@ change account settings and use memory sharing, without writing any HTTP code.
 - Ships its own type declarations
 - Apache License 2.0
 
-It follows the same design as the [Java client](../java/README.md): same clients, same operations, same error
+It follows the same design as the [Java client](https://github.com/esuryadi/mnemo-client/tree/main/java): same clients, same operations, same error
 codes.
 
 ## Install
@@ -202,4 +202,4 @@ The unit tests run the real client against an in-process HTTP server.
 
 ## License
 
-Apache License 2.0. See [LICENSE](../LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

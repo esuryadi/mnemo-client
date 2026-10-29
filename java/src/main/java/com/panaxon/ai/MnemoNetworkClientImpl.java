@@ -29,6 +29,8 @@ import com.panaxon.ai.exception.MnemoClientException;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
 
+import java.util.Map;
+
 /**
  * <b>MnemoNetworkClientImpl</b> is a concrete implementation of the {@link MnemoNetworkClient} interface.
  * It provides the actual logic for executing network-related operations within the MNEMO system.
@@ -77,10 +79,10 @@ class MnemoNetworkClientImpl extends AbstractMnemoClient implements MnemoNetwork
         });
     }
 
-    private Object listPrivateGrants(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> listPrivateGrants(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/sharing/private"),
                 "ownerTenantId", tenant()),
-                null, JSON);
+                null, MAP);
     }
 
     private Object grantPrivate(WebTarget base) throws MnemoClientException {
@@ -95,10 +97,10 @@ class MnemoNetworkClientImpl extends AbstractMnemoClient implements MnemoNetwork
                 null, null);
     }
 
-    private Object listInboundGrants(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> listInboundGrants(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/sharing/private/inbound"),
                 "borrowerTenantId", tenant()),
-                null, JSON);
+                null, MAP);
     }
 
     private Object acceptInboundGrant(WebTarget base) throws MnemoClientException {
@@ -125,11 +127,11 @@ class MnemoNetworkClientImpl extends AbstractMnemoClient implements MnemoNetwork
                 null, null);
     }
 
-    private Object browsePublicRegistry(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> browsePublicRegistry(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/sharing/public/registry"),
                 "subject", builder.subject(), "ownerTenantId", builder.counterpartTenantId(),
                 "callerTenantId", builder.tenantId(), "page", builder.page(), "size", builder.size()),
-                null, JSON);
+                null, MAP);
     }
 
     private Object subscribe(WebTarget base) throws MnemoClientException {
@@ -144,16 +146,16 @@ class MnemoNetworkClientImpl extends AbstractMnemoClient implements MnemoNetwork
                 null, null);
     }
 
-    private Object listSubscriptions(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> listSubscriptions(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/sharing/subscriptions"),
                 "tenantId", tenant()),
-                null, JSON);
+                null, MAP);
     }
 
-    private Object searchTenants(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> searchTenants(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/tenants/search"),
                 "q", require(builder.query(), "query"), "page", builder.page(), "size", builder.size()),
-                null, JSON);
+                null, MAP);
     }
 
     private Object requestAffiliation(WebTarget base) throws MnemoClientException {
@@ -173,16 +175,16 @@ class MnemoNetworkClientImpl extends AbstractMnemoClient implements MnemoNetwork
                 null, JSON);
     }
 
-    private Object listOutgoingAffiliations(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> listOutgoingAffiliations(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/affiliates/outgoing"),
                 "tenantId", tenant()),
-                null, JSON);
+                null, MAP);
     }
 
-    private Object listIncomingAffiliations(WebTarget base) throws MnemoClientException {
+    private Map<String, Object> listIncomingAffiliations(WebTarget base) throws MnemoClientException {
         return send("GET", query(base.path("mnemo/network/affiliates/incoming"),
                 "tenantId", tenant()),
-                null, JSON);
+                null, MAP);
     }
 
     private String tenant() throws MnemoClientException {

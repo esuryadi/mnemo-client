@@ -42,6 +42,11 @@ class MnemoObjectMapperProvider implements ContextResolver<ObjectMapper> {
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    /** @return the shared mapper, for code that parses JSON outside the JAX-RS pipeline */
+    static ObjectMapper mapper() {
+        return MAPPER;
+    }
+
     @Override
     public ObjectMapper getContext(Class<?> type) {
         return MAPPER;

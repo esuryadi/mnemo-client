@@ -169,7 +169,7 @@ class MnemoChatClientTest {
         assertEquals("Trip", result.get("sessionName"));
         assertEquals("PATCH", server.last().method());
         assertEquals("/mnemo/sessions/s1/name", server.last().path());
-        assertEquals(Map.of("sessionName", "Trip"), JSON.readValue(server.last().body(), Map.class));
+        assertEquals(Map.of("tenantId", "acme", "sessionName", "Trip"), JSON.readValue(server.last().body(), Map.class));
     }
 
     @Test
@@ -195,6 +195,81 @@ class MnemoChatClientTest {
         Map<String, Object> health = new MnemoChatClient.Builder().apiKey("k").baseUrl(server.url())
                 .operation(MnemoChatClient.Operation.HEALTH).build().execute();
         assertEquals("UP", health.get("status"));
+    }
+
+    private static final String INIT_STREAM = "\n\n"
+            + "event: init-stage\ndata: {\"stage\":\"load-subjects\",\"status\":\"start\",\"elapsedMs\":0,\"message\":\"Loading\"}\n\n"
+            + "event: init-stage\ndata: {\"stage\":\"load-subjects\",\"status\":\"finish\",\"elapsedMs\":42,\"message\":\"Loaded 2\"}\n\n"
+            + "event: complete\ndata: {\"tenantId\":\"acme\",\"sessionId\":\"s1\",\"status\":\"complete\",\"totalMs\":50,"
+            + "\"message\":\"Initialization complete. Chat is ready.\"}\n\n"
+            + "event: done\ndata: \n\n";
+
+    @Test
+    void initSessionReadsTheEventStreamAndReportsReady() throws Exception {
+        server.reply(200, INIT_STREAM, "text/event-stream");
+
+        Map<String, Object> result = builder().operation(MnemoChatClient.Operation.INIT_SESSION)
+                .sessionId("s1").sessionName("My session").build().execute();
+
+        assertEquals(true, result.get("ready"));
+        assertEquals("Initialization complete. Chat is ready.", result.get("message"));
+        assertEquals(50, ((Number) result.get("totalMs")).intValue());
+        List<?> stages = (List<?>) result.get("stages");
+        assertEquals(2, stages.size());
+        assertEquals("finish", ((Map<?, ?>) stages.get(1)).get("status"));
+        FakeMnemoServer.Received r = server.last();
+        assertEquals("POST", r.method());
+        assertEquals("/mnemo/init/stream", r.path());
+        assertEquals("text/event-stream", r.accept());
+        assertEquals("tok-1", r.token());
+        assertEquals(Map.of("tenantId", "acme", "sessionId", "s1", "sessionName", "My session"),
+                JSON.readValue(r.body(), Map.class));
+    }
+
+    @Test
+    void initSessionErrorEventBecomesAnException() {
+        server.reply(200, "event: error\ndata: {\"error\":\"Access denied: token does not belong to tenantId=x\"}\n\n"
+                + "event: done\ndata: \n\n", "text/event-stream");
+        MnemoClientException e = assertThrows(MnemoClientException.class, () -> builder()
+                .operation(MnemoChatClient.Operation.INIT_SESSION).sessionId("s1").build().execute());
+        assertEquals(MnemoError.Code.INIT_FAILED, e.getError().code());
+        assertEquals("Access denied: token does not belong to tenantId=x", e.getMessage());
+    }
+
+    @Test
+    void initSessionThatEndsWithoutCompletingIsAnError() {
+        server.reply(200, "event: init-stage\ndata: {\"stage\":\"load-subjects\",\"status\":\"start\"}\n\n",
+                "text/event-stream");
+        MnemoClientException e = assertThrows(MnemoClientException.class, () -> builder()
+                .operation(MnemoChatClient.Operation.INIT_SESSION).sessionId("s1").build().execute());
+        assertEquals(MnemoError.Code.INIT_FAILED, e.getError().code());
+    }
+
+    @Test
+    void initSessionWithAnHttpErrorCarriesTheStatus() {
+        server.reply(401, "{\"error\":\"Invalid or revoked API token.\"}");
+        MnemoClientException e = assertThrows(MnemoClientException.class, () -> builder()
+                .operation(MnemoChatClient.Operation.INIT_SESSION).sessionId("s1").build().execute());
+        assertEquals(MnemoError.Code.UNAUTHORIZED, e.getError().code());
+        assertEquals(401, e.getHttpStatus());
+    }
+
+    @Test
+    void initSessionNeedsASessionId() {
+        MnemoClientException e = assertThrows(MnemoClientException.class, () -> builder()
+                .operation(MnemoChatClient.Operation.INIT_SESSION).build().execute());
+        assertTrue(e.getMessage().contains("sessionId"));
+        assertEquals(0, server.count());
+    }
+
+    @Test
+    void eventParserHandlesCommentsCrLfAndMultiLineData() {
+        var events = AbstractMnemoClient.parseEvents(": keep-alive\r\n\r\nevent: a\r\ndata: one\r\ndata: two\r\n\r\ndata: bare\n");
+        assertEquals(2, events.size());
+        assertEquals("a", events.get(0).name());
+        assertEquals("one\ntwo", events.get(0).data());
+        assertEquals("message", events.get(1).name());
+        assertEquals("bare", events.get(1).data());
     }
 
     @Test

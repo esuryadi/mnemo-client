@@ -25,11 +25,16 @@
 
 package com.panaxon.ai;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.panaxon.ai.exception.MnemoClientException;
+import com.panaxon.ai.exception.MnemoError;
 import com.panaxon.ai.model.ChatMessageResponse;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +47,8 @@ import java.util.Map;
  * @since 1.0
  */
 class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient {
+    private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() { };
+
     private final Builder builder;
 
     MnemoChatClientImpl(Builder builder) {
@@ -58,6 +65,7 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
             throw invalid("operation is required");
         }
         return (T) withTarget(base -> switch (operation) {
+            case INIT_SESSION -> initSession(base);
             case CHAT -> chat(base);
             case LIST_SESSIONS -> listSessions(base);
             case GET_HISTORY -> getHistory(base);
@@ -69,6 +77,42 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
             case GET_PLAN -> getPlan(base);
             case HEALTH -> health(base);
         });
+    }
+
+    private Map<String, Object> initSession(WebTarget base) throws MnemoClientException {
+        List<SseEvent> events = sendEventStream("POST", base.path("mnemo/init/stream"),
+                body("tenantId", require(tenantId(), "tenantId"),
+                        "sessionId", require(builder.sessionId(), "sessionId"),
+                        "sessionName", builder.sessionName()));
+        List<Map<String, Object>> stages = new ArrayList<>();
+        Map<String, Object> complete = null;
+        for (SseEvent event : events) {
+            if (event.name().equals("init-stage")) {
+                stages.add(parse(event.data()));
+            } else if (event.name().equals("complete")) {
+                complete = parse(event.data());
+            } else if (event.name().equals("error")) {
+                Object error = parse(event.data()).get("error");
+                throw new MnemoClientException(new MnemoError(MnemoError.Code.INIT_FAILED, "%s",
+                        error == null ? event.data() : error.toString()));
+            }
+        }
+        if (complete == null) {
+            throw new MnemoClientException(new MnemoError(MnemoError.Code.INIT_FAILED, "%s",
+                    "The service ended the stream before initialization completed"));
+        }
+        Map<String, Object> result = new LinkedHashMap<>(complete);
+        result.put("ready", true);
+        result.put("stages", stages);
+        return result;
+    }
+
+    private static Map<String, Object> parse(String json) throws MnemoClientException {
+        try {
+            return MnemoObjectMapperProvider.mapper().readValue(json, MAP_TYPE);
+        } catch (JsonProcessingException e) {
+            throw new MnemoClientException(new MnemoError(MnemoError.Code.SERIALIZATION_ERROR, null), e);
+        }
     }
 
     private ChatMessageResponse chat(WebTarget base) throws MnemoClientException {
@@ -95,7 +139,8 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
     private Map<String, Object> renameSession(WebTarget base) throws MnemoClientException {
         return send("PATCH", base.path("mnemo/sessions/{id}/name")
                 .resolveTemplate("id", require(builder.sessionId(), "sessionId")),
-                body("sessionName", require(builder.sessionName(), "sessionName")), MAP);
+                body("tenantId", require(tenantId(), "tenantId"),
+                        "sessionName", require(builder.sessionName(), "sessionName")), MAP);
     }
 
     private Object closeSession(WebTarget base) throws MnemoClientException {

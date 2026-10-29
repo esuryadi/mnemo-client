@@ -36,7 +36,8 @@ public record MnemoError(Code code, String message, String... args) {
         RATE_LIMITED("MNERR-0429", "Rate limit or quota exceeded"),
         SERVER_ERROR("MNERR-0500", "MNEMO server error"),
         IO_ERROR("MNERR-0600", "Unable to reach the MNEMO service"),
-        SERIALIZATION_ERROR("MNERR-0601", "Unable to read the MNEMO response");
+        SERIALIZATION_ERROR("MNERR-0601", "Unable to read the MNEMO response"),
+        INIT_FAILED("MNERR-0700", "Session initialization failed");
 
         private String code;
         private String defaultMessage;

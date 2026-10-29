@@ -108,15 +108,23 @@ class MnemoClientIT {
         String key = need("MNEMO_API_KEY");
         String tenant = need("MNEMO_TENANT_ID");
         String session = "it-" + UUID.randomUUID();
+        try {
+            Map<String, Object> init = new MnemoChatClient.Builder().apiKey(key).baseUrl(baseUrl()).tenantId(tenant)
+                    .sessionId(session).operation(MnemoChatClient.Operation.INIT_SESSION).build().execute();
+            assertEquals(true, init.get("ready"));
 
-        ChatMessageResponse reply = new MnemoChatClient.Builder().apiKey(key).baseUrl(baseUrl()).tenantId(tenant)
-                .sessionId(session).message("Hello, this is an automated connectivity check.")
-                .build().execute();
-        assertEquals(session, reply.sessionId());
-        assertNotNull(reply.message());
-
-        new MnemoChatClient.Builder().apiKey(key).baseUrl(baseUrl()).tenantId(tenant).sessionId(session)
-                .operation(MnemoChatClient.Operation.CLOSE_SESSION).permanent(true).build().execute();
+            ChatMessageResponse reply = new MnemoChatClient.Builder().apiKey(key).baseUrl(baseUrl()).tenantId(tenant)
+                    .sessionId(session).message("Hello, this is an automated connectivity check.")
+                    .build().execute();
+            assertEquals(session, reply.sessionId());
+            assertNotNull(reply.message());
+            // the service answers HTTP 200 with this text when the session was not initialized, so a 200 proves nothing
+            assertFalse(reply.message().contains("not been initialized"), reply.message());
+            assertFalse(reply.message().isBlank());
+        } finally {
+            new MnemoChatClient.Builder().apiKey(key).baseUrl(baseUrl()).tenantId(tenant).sessionId(session)
+                    .operation(MnemoChatClient.Operation.CLOSE_SESSION).permanent(true).build().execute();
+        }
     }
 
     @Test

@@ -38,12 +38,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * so the clients can be tested end to end through the real RESTEasy stack without the MNEMO service.
  */
 final class FakeMnemoServer implements AutoCloseable {
-    record Received(String method, String path, String rawPath, String query, String token, String body) { }
+    record Received(String method, String path, String rawPath, String query, String token, String accept, String body) { }
 
     private final HttpServer server;
     private final List<Received> requests = new CopyOnWriteArrayList<>();
     private volatile int status = 200;
     private volatile String reply = "{}";
+    private volatile String contentType = "application/json";
 
     FakeMnemoServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -51,9 +52,10 @@ final class FakeMnemoServer implements AutoCloseable {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             requests.add(new Received(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
                     exchange.getRequestURI().getRawPath(), exchange.getRequestURI().getRawQuery(),
-                    exchange.getRequestHeaders().getFirst(AbstractMnemoClient.TOKEN_HEADER), body));
+                    exchange.getRequestHeaders().getFirst(AbstractMnemoClient.TOKEN_HEADER),
+                    exchange.getRequestHeaders().getFirst("Accept"), body));
             byte[] bytes = reply.getBytes(StandardCharsets.UTF_8);
-            exchange.getResponseHeaders().add("Content-Type", "application/json");
+            exchange.getResponseHeaders().add("Content-Type", contentType);
             if (status == 204) {
                 exchange.sendResponseHeaders(204, -1);
             } else {
@@ -66,8 +68,13 @@ final class FakeMnemoServer implements AutoCloseable {
     }
 
     FakeMnemoServer reply(int status, String json) {
+        return reply(status, json, "application/json");
+    }
+
+    FakeMnemoServer reply(int status, String body, String contentType) {
         this.status = status;
-        this.reply = json;
+        this.reply = body;
+        this.contentType = contentType;
         return this;
     }
 

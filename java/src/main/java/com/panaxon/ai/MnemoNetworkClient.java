@@ -45,7 +45,9 @@ package com.panaxon.ai;
  *         .operation(MnemoNetworkClient.Operation.GRANT_PRIVATE)
  *         .build().execute();
  * }</pre>
- * Results are the service's JSON parsed into {@code Map} / {@code List} values.
+ * The list and browse operations return a {@code Map<String, Object>} whose entries are under a key such as
+ * {@code grants}, {@code subscriptions}, {@code affiliations} or {@code content}. The other operations return the
+ * service's JSON parsed into plain {@code Map} / {@code List} values, or {@code null} when it replies with no body.
  *
  * @author edward.suryadi
  * @since 1.0

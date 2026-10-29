@@ -36,8 +36,8 @@ import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.apache.commons.lang3.StringUtils;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,11 +66,14 @@ abstract class AbstractMnemoClient implements MnemoClient {
 
     /** Runs {@code call} against a freshly configured JAX-RS client after validating the builder settings. */
     <T> T withTarget(TargetCall<T> call) throws MnemoClientException {
-        if (StringUtils.isBlank(builder.apiKey())) {
+        if (isBlank(builder.apiKey())) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.MISSING_API_KEY, null));
         }
-        if (StringUtils.isBlank(builder.baseUrl())) {
+        if (isBlank(builder.baseUrl())) {
             throw invalid("baseUrl is required");
+        }
+        if (builder.timeout() == null || builder.timeout().isNegative()) {
+            throw invalid("timeout must be zero or positive");
         }
         long millis = builder.timeout().toMillis();
         try (Client client = ClientBuilder.newBuilder()
@@ -104,6 +107,62 @@ abstract class AbstractMnemoClient implements MnemoClient {
         }
     }
 
+    /**
+     * Sends one request that answers with a server-sent event stream and reads the stream to its end.
+     * The stream is finite for the calls that use this (it ends after a final event), so it is read whole.
+     */
+    List<SseEvent> sendEventStream(String method, WebTarget target, Object body) throws MnemoClientException {
+        Invocation invocation = target.request(MediaType.SERVER_SENT_EVENTS)
+                .header(TOKEN_HEADER, builder.apiKey()).build(method, Entity.json(body));
+        try (Response response = invocation.invoke()) {
+            if (response.getStatus() >= 400) {
+                throw failure(response.getStatus(), response);
+            }
+            return parseEvents(response.hasEntity() ? response.readEntity(String.class) : "");
+        }
+    }
+
+    /** One server-sent event: its name ({@code message} when none was given) and its data. */
+    record SseEvent(String name, String data) { }
+
+    static List<SseEvent> parseEvents(String text) {
+        List<SseEvent> events = new ArrayList<>();
+        String name = null;
+        StringBuilder data = new StringBuilder();
+        boolean open = false;
+        for (String line : text.split("\r?\n", -1)) {
+            if (line.isEmpty()) {
+                if (open) {
+                    events.add(new SseEvent(name == null ? "message" : name, data.toString()));
+                }
+                name = null;
+                data.setLength(0);
+                open = false;
+            } else if (!line.startsWith(":")) {
+                int colon = line.indexOf(':');
+                String field = colon < 0 ? line : line.substring(0, colon);
+                String value = colon < 0 ? "" : line.substring(colon + 1);
+                if (value.startsWith(" ")) {
+                    value = value.substring(1);
+                }
+                if (field.equals("event")) {
+                    name = value;
+                    open = true;
+                } else if (field.equals("data")) {
+                    if (data.length() > 0) {
+                        data.append('\n');
+                    }
+                    data.append(value);
+                    open = true;
+                }
+            }
+        }
+        if (open) {
+            events.add(new SseEvent(name == null ? "message" : name, data.toString()));
+        }
+        return events;
+    }
+
     private static MnemoClientException failure(int status, Response response) {
         MnemoError.Code code;
         if (status == 401) code = MnemoError.Code.UNAUTHORIZED;
@@ -128,8 +187,12 @@ abstract class AbstractMnemoClient implements MnemoClient {
         return new MnemoClientException(error, status);
     }
 
+    static boolean isBlank(String value) {
+        return value == null || value.isBlank();
+    }
+
     static String require(String value, String name) throws MnemoClientException {
-        if (StringUtils.isBlank(value)) {
+        if (isBlank(value)) {
             throw invalid(name + " is required");
         }
         return value;

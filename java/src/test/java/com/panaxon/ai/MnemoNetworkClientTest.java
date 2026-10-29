@@ -103,9 +103,11 @@ class MnemoNetworkClientTest {
     }
 
     @Test
-    void browseRegistryAllowsListResponsesAndOptionalFilters() throws Exception {
-        server.reply(200, "[{\"subject\":\"Roadmap\"}]");
-        List<Map<String, Object>> entries = builder().operation(BROWSE_PUBLIC_REGISTRY).page(1).build().execute();
+    @SuppressWarnings("unchecked")
+    void browseRegistryReturnsAPageAndSendsOnlyTheFiltersSet() throws Exception {
+        server.reply(200, "{\"content\":[{\"subject\":\"Roadmap\"}],\"totalElements\":1}");
+        Map<String, Object> page = builder().operation(BROWSE_PUBLIC_REGISTRY).page(1).build().execute();
+        List<Map<String, Object>> entries = (List<Map<String, Object>>) page.get("content");
         assertEquals("Roadmap", entries.get(0).get("subject"));
         assertEquals("callerTenantId=acme&page=1", server.last().query());
     }

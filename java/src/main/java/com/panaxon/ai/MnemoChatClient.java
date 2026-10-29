@@ -34,7 +34,16 @@ package com.panaxon.ai;
  * The builder holds the parameters; {@link #execute()} sends the call and returns the result.
  *
  * <h2>Example: chat</h2>
+ * A new session is initialized once, then chatted in as often as needed:
  * <pre>{@code
+ * MnemoClient init = new MnemoChatClient.Builder()
+ *         .apiKey(System.getenv("MNEMO_API_KEY"))
+ *         .tenantId("acme")
+ *         .sessionId("session-1")
+ *         .operation(MnemoChatClient.Operation.INIT_SESSION)
+ *         .build();
+ * init.execute();
+ *
  * MnemoClient client = new MnemoChatClient.Builder()
  *         .apiKey(System.getenv("MNEMO_API_KEY"))
  *         .tenantId("acme")
@@ -71,13 +80,21 @@ public interface MnemoChatClient extends MnemoClient {
      * The chat-related calls, with the builder parameters each one reads and the type {@code execute()} returns.
      */
     enum Operation {
+        /**
+         * Prepares a new session so it can be chatted in; needs tenantId, sessionId, optional sessionName. A session
+         * must be initialized once before its first {@link #CHAT}: on an uninitialized session the service answers
+         * with a "not been initialized" message and saves nothing. Waits for initialization to finish (it can take
+         * ten seconds or more) and returns a {@code Map<String, Object>} with {@code ready}, {@code message},
+         * {@code totalMs} and the {@code stages} that ran; throws if initialization fails.
+         */
+        INIT_SESSION,
         /** Sends {@code message} in {@code sessionId}; needs tenantId, sessionId, message. Returns {@link com.panaxon.ai.model.ChatMessageResponse}. */
         CHAT,
-        /** Lists sessions; needs tenantId, optional query/page/size. Returns {@code Map<String, Object>} (a page). */
+        /** Lists sessions; needs tenantId, optional query/page/size. The query must equal a session's name exactly; it is not a partial-text search. Returns {@code Map<String, Object>} (a page). */
         LIST_SESSIONS,
         /** One page of a session's history, newest first; needs tenantId, sessionId, optional before/size. Returns {@code Map<String, Object>}. */
         GET_HISTORY,
-        /** Renames a session; needs sessionId, sessionName. Returns {@code Map<String, Object>}. */
+        /** Renames a session; needs tenantId, sessionId, sessionName. Returns {@code Map<String, Object>}. */
         RENAME_SESSION,
         /** Closes a session, or deletes it when {@code permanent}; needs tenantId, sessionId. Returns {@code null}. */
         CLOSE_SESSION,
@@ -132,7 +149,7 @@ public interface MnemoChatClient extends MnemoClient {
             return this;
         }
 
-        /** The new name for {@link Operation#RENAME_SESSION}. */
+        /** The name for {@link Operation#INIT_SESSION} (optional), or the new name for {@link Operation#RENAME_SESSION}. */
         public Builder sessionName(String sessionName) {
             this.sessionName = sessionName;
             return this;
@@ -149,7 +166,7 @@ public interface MnemoChatClient extends MnemoClient {
             return this;
         }
 
-        /** Search text for {@link Operation#LIST_SESSIONS}. */
+        /** For {@link Operation#LIST_SESSIONS}: return only sessions whose name equals this text exactly. */
         public Builder query(String query) {
             this.query = query;
             return this;

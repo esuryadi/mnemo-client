@@ -4,7 +4,9 @@ Public client libraries for the MNEMO REST API (backend lives in the separate `m
 module `mnemo-rest`). Apache 2.0, published to Maven Central as `ai.panaxon:mnemo-client`
 (namespace `ai.panaxon`, verified in the Central Portal). The Java *packages* stay `com.panaxon.ai.*` — the
 `groupId` and the package names are independent, and renaming packages would break every consumer's imports.
-The TypeScript and Python clients are built and tested but **not published** (npm / PyPI names are placeholders).
+The TypeScript and Python clients are built and tested but **not published yet**; their publish workflows are ready
+(npm `@panaxon/mnemo-client`, PyPI `mnemo-client`; see the Release section of `typescript/CLAUDE.md` and
+`python/CLAUDE.md`).
 
 ## Layout
 
@@ -13,6 +15,9 @@ The TypeScript and Python clients are built and tested but **not published** (np
 - `python/` — Python client, 3.9+, stdlib only. Notes: `python/CLAUDE.md`.
 - Put per-language notes in that language's folder; this file is for rules common to the repo, plus the Java
   client's commands and release process.
+- `.github/workflows/<language>-publish.yml`: one manual (`workflow_dispatch`) release workflow per language, each
+  with a `dry_run` input and a refusal to republish an existing version. Each language has a `smoke-test/` with a
+  script that verifies a release from the real registry.
 - The three clients must stay **in parity**: same clients, operations, paths, body-vs-query placement, defaults,
   validation and error codes. A backend change or a new operation lands in all three, each with its test, and the
   tests are ports of each other (same cases, same asserted paths and query strings).

@@ -37,5 +37,32 @@ differs for Python.
 - `datetime.fromisoformat` only accepts a trailing `Z` from Python 3.11 onwards. Use `model._instant`.
 - Test server: `HTTPServer.server_bind` calls `socket.getfqdn()`, which stalled for about 35s per run on this Mac.
   `tests/fake_server.py` overrides it, so keep that override.
-- Not published to PyPI yet. `mnemo-client` is a placeholder distribution name: check that it is available before
-  the first upload.
+- The version lives only in `__version__` (`src/mnemo_client/__init__.py`); `pyproject.toml` reads it with
+  `dynamic = ["version"]`. Do not add a `version =` to `pyproject.toml`.
+- `LICENSE` here is a copy of the repo root's: setuptools refuses license files outside the project directory.
+  `MANIFEST.in` puts `tests/fake_server.py` in the sdist, which setuptools would otherwise leave out (it only picks
+  up `test_*.py`), so the sdist's tests can run.
+- `license = "Apache-2.0"` is an SPDX expression, which needs setuptools 77+. Do not add a `License ::` classifier
+  next to it: setuptools rejects the pair.
+- The README is the project page on pypi.org, where relative links outside `python/` break: link the rest of the
+  repo with absolute GitHub URLs.
+
+## Release (PyPI, `mnemo-client`)
+
+Not published yet. Released by hand from GitHub: Actions -> "Publish Python client" -> Run workflow (`dry_run`
+first; `index: testpypi` rehearses the upload on test.pypi.org). `.github/workflows/python-publish.yml` has the
+details. It runs the tests on 3.9 and 3.14, builds the sdist and wheel, runs `twine check --strict` and installs the
+wheel, and refuses a version already on the index. PyPI never accepts a version twice (not even after a delete), so a
+real run is **irreversible**: bump `__version__` first.
+
+One-time setup, done by a maintainer: an account with two-factor authentication on pypi.org (and separately on
+test.pypi.org), then Account -> Publishing -> Add a new pending publisher -> GitHub: project `mnemo-client`, owner
+`esuryadi`, repository `mnemo-client`, workflow `python-publish.yml`, environment `pypi` (`testpypi` on TestPyPI).
+That is trusted publishing: no token is stored anywhere, and every upload gets a provenance attestation.
+
+After every release, run `smoke-test/verify-pypi.sh <version> --wait` (add `--test-pypi` for TestPyPI). It installs
+the release from the real index into an empty virtual environment with no pip cache, checks the files, the
+attestations, `py.typed` and `__version__`, then runs `smoke_test.py` (a health check and a bad-key 401, neither of
+which costs LLM budget). `PYTHON=/usr/bin/python3` checks it on 3.9. After the first release, change the README's
+Install section to `pip install mnemo-client`, and the status in the root README and in Dorothy's Help
+(`HelpModal.tsx`).

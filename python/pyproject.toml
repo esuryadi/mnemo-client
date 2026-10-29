@@ -1,21 +1,41 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "mnemo-client"
-version = "1.0.0"
+dynamic = ["version"]
 description = "Python client for the MNEMO API, the multi-tenant AI memory service from Panaxon AI"
 readme = "README.md"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "PANAXON.AI, LLC" }]
 requires-python = ">=3.9"
 dependencies = []
+keywords = ["mnemo", "panaxon", "memory", "rag", "llm"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries",
     "Typing :: Typed",
 ]
+
+[project.urls]
+Homepage = "https://github.com/esuryadi/mnemo-client/tree/main/python"
+Source = "https://github.com/esuryadi/mnemo-client"
+Issues = "https://github.com/esuryadi/mnemo-client/issues"
+
+[tool.setuptools.dynamic]
+version = { attr = "mnemo_client.__version__" }
 
 [tool.setuptools.packages.find]
 where = ["src"]

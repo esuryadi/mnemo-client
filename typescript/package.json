@@ -4,6 +4,15 @@
   "description": "TypeScript client for the MNEMO API, the multi-tenant AI memory service from Panaxon AI",
   "license": "Apache-2.0",
   "author": "PANAXON.AI, LLC",
+  "homepage": "https://github.com/esuryadi/mnemo-client/tree/main/typescript#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esuryadi/mnemo-client.git",
+    "directory": "typescript"
+  },
+  "bugs": {
+    "url": "https://github.com/esuryadi/mnemo-client/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -14,16 +23,20 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE"
   ],
   "engines": {
     "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
-    "prepublishOnly": "npm run build && npm test"
+    "prepublishOnly": "npm run build && npm test && npm run typecheck"
   },
   "keywords": [
     "mnemo",

@@ -1,0 +1,100 @@
+# Manually publishes the TypeScript client to npm as @panaxon/mnemo-client.
+#
+# Run it from GitHub: Actions -> "Publish TypeScript client" -> Run workflow (branch: main).
+# It only publishes a version that is not on npm yet, so bump "version" in typescript/package.json, push to main,
+# then run it. npm never accepts the same version twice, even after an unpublish, so a release is irreversible.
+#
+# "dry_run" tests, builds and packs (npm publish --dry-run) but does not upload, to rehearse a release.
+#
+# Authentication, either of:
+#   - npm trusted publishing (preferred, no secret): on npmjs.com, package settings -> Trusted publisher ->
+#     GitHub Actions, repository esuryadi/mnemo-client, workflow typescript-publish.yml, environment npm.
+#     npm only offers this on a package that already exists, so the very first release needs the token below
+#     (or an `npm publish --access public` from a maintainer's machine).
+#   - repository secret NPM_TOKEN: an npm granular access token with write access to @panaxon/mnemo-client.
+# Both need the npm organization "panaxon" to exist and own the @panaxon scope.
+name: Publish TypeScript client
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Test, build and pack only - do not upload to npm"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  id-token: write # trusted publishing and provenance
+
+concurrency:
+  group: typescript-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: npm
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+          cache: npm
+          cache-dependency-path: typescript/package-lock.json
+
+      - name: Use an npm that supports trusted publishing (11.5.1+)
+        run: npm install -g npm@11
+
+      - name: Check this version is new
+        id: version
+        run: |
+          NAME=$(node -p 'require("./package.json").name'); VERSION=$(node -p 'require("./package.json").version')
+          case "$VERSION" in *-*) echo "::error::Refusing to release a pre-release version ($VERSION)"; exit 1;; esac
+          URL="https://registry.npmjs.org/$(echo "$NAME" | sed 's|/|%2f|')/$VERSION"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "$NAME@$VERSION -> $URL -> HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "::error::$NAME@$VERSION is already on npm. Bump \"version\" in typescript/package.json first."; exit 1
+          elif [ "$STATUS" != "404" ]; then
+            echo "::error::Could not tell whether $VERSION is published (HTTP $STATUS); not publishing."; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - run: npm ci
+
+      - name: Run unit tests and type-check
+        run: npm test && npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Check the package contents
+        run: |
+          npm pack --dry-run --json > pack.json
+          node -e '
+            const files = require("./pack.json")[0].files.map(f => f.path);
+            const need = ["LICENSE", "README.md", "package.json", "dist/index.js", "dist/index.d.ts"];
+            const missing = need.filter(f => !files.includes(f));
+            const stray = files.filter(f => !need.includes(f) && !f.startsWith("dist/"));
+            console.log(files.length + " files");
+            if (missing.length || stray.length) {
+              console.error("::error::missing: " + missing + " / unexpected: " + stray); process.exit(1);
+            }'
+          rm pack.json
+
+      - name: Dry run - pack only
+        if: ${{ inputs.dry_run }}
+        run: npm publish --dry-run --access public
+
+      - name: Publish to npm
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # empty once trusted publishing is set up

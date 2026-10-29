@@ -9,7 +9,7 @@ and use memory sharing, without writing any HTTP code.
 - Typed (`py.typed`)
 - Apache License 2.0
 
-It follows the same design as the [Java client](../java/README.md): same clients, same operations, same error
+It follows the same design as the [Java client](https://github.com/esuryadi/mnemo-client/tree/main/java): same clients, same operations, same error
 codes. Method and attribute names are snake_case.
 
 ## Install
@@ -197,4 +197,4 @@ The unit tests use only the standard library. They run the real client against a
 
 ## License
 
-Apache License 2.0. See [LICENSE](../LICENSE).
+Apache License 2.0. See [LICENSE](LICENSE).

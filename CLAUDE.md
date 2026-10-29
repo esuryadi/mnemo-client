@@ -64,9 +64,20 @@ Commands (run from `java/`):
 
 ### Release
 
-`gpg.keyname` in `pom.xml` is the signing key fingerprint. `central-publishing-maven-plugin` has `autoPublish`
-and `waitUntil=published`, so `mvn deploy` publishes to Central immediately and irreversibly. The signing key's
-public half must be on a keyserver first.
+Releases are published by hand from GitHub: Actions -> "Publish Java client" -> Run workflow (`dry_run` first).
+`gpg.keyname` in `pom.xml` is the signing key fingerprint, and the workflow needs the secrets `CENTRAL_USERNAME`,
+`CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`. `central-publishing-maven-plugin` has `autoPublish` and
+`waitUntil=published`, so a real run publishes to Central immediately and **irreversibly**; the workflow refuses a
+`-SNAPSHOT` or a version already on Central. The public half of the signing key must be on a keyserver, and the
+`ai.panaxon` namespace Verified in the Central Portal.
+
+After every release, verify it from the real repository with `java/smoke-test/verify-central.sh <version> --wait`.
+It downloads the release into an empty local repository (nothing local can mask a problem), checks the files,
+checksums and GPG signatures, then compiles and runs `SmokeTest` against it. A new release can take from minutes to
+a couple of hours to appear on repo.maven.apache.org, hence `--wait`. Do not `mvn install` the library into `~/.m2`
+and forget it there: that hides a failed Central download.
+
+Plan: publish `0.1.0`, verify it with the script, then publish `1.0.0`.
 
 ### Not supported (deliberately)
 

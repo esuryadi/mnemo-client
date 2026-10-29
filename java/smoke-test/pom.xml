@@ -1,0 +1,22 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <!-- A standalone consumer of the published mnemo-client. It is deliberately NOT a module of ../pom.xml: it must
+         resolve the library from Maven Central like any user would. Run it through verify-central.sh. -->
+    <groupId>ai.panaxon.smoketest</groupId>
+    <artifactId>mnemo-client-smoke-test</artifactId>
+    <version>1</version>
+    <properties>
+        <maven.compiler.release>17</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mnemo.version>0.1.0</mnemo.version>
+    </properties>
+    <dependencies>
+        <dependency>
+            <groupId>ai.panaxon</groupId>
+            <artifactId>mnemo-client</artifactId>
+            <version>${mnemo.version}</version>
+        </dependency>
+    </dependencies>
+</project>

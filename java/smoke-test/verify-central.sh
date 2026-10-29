@@ -39,14 +39,21 @@ done
 
 echo "== GPG signatures verify against the key on a public keyserver"
 export GNUPGHOME="$WORK/gnupg"; mkdir -m 700 "$GNUPGHOME"
-KEYID=$(gpg --list-packets "$WORK/$ARTIFACT-$VERSION.jar.asc" 2>/dev/null | sed -n 's/.*keyid \([0-9A-F]*\).*/\1/p' | head -1)
-echo "  signed with key id: ${KEYID:-unknown}"
-if [ -n "$KEYID" ] && gpg --batch --keyserver hkps://keyserver.ubuntu.com --recv-keys "$KEYID" >/dev/null 2>&1; then
+SIGPKT=$(gpg --list-packets "$WORK/$ARTIFACT-$VERSION.jar.asc" 2>/dev/null)
+# prefer the full fingerprint: some keyservers (keyserver.ubuntu.com) answer a lookup by it but not by the short key id
+KEYID=$(echo "$SIGPKT" | sed -n 's/.*issuer fpr v4 \([0-9A-F]*\).*/\1/p' | head -1)
+[ -z "$KEYID" ] && KEYID=$(echo "$SIGPKT" | sed -n 's/.*keyid \([0-9A-F]*\).*/\1/p' | head -1)
+echo "  signed with key: ${KEYID:-unknown}"
+FETCHED=false
+for ks in hkps://keys.openpgp.org hkps://keyserver.ubuntu.com; do
+  if [ -n "$KEYID" ] && gpg --batch --keyserver "$ks" --recv-keys "$KEYID" >/dev/null 2>&1; then FETCHED=true; echo "  fetched the public key from ${ks#hkps://}"; break; fi
+done
+if $FETCHED; then
   for f in "$ARTIFACT-$VERSION.pom" "$ARTIFACT-$VERSION.jar" "$ARTIFACT-$VERSION-sources.jar" "$ARTIFACT-$VERSION-javadoc.jar"; do
     gpg --batch --verify "$WORK/$f.asc" "$WORK/$f" >/dev/null 2>&1 && ok "$f signature is good" || bad "$f signature does not verify"
   done
 else
-  bad "could not fetch the signing key from keyserver.ubuntu.com (Central requires it to be public)"
+  bad "could not fetch the signing key from keys.openpgp.org or keyserver.ubuntu.com (Central requires it to be public)"
 fi
 unset GNUPGHOME
 

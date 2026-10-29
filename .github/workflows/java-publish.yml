@@ -1,0 +1,85 @@
+# Manually publishes the Java client to Maven Central.
+#
+# Run it from GitHub: Actions -> "Publish Java client" -> Run workflow (branch: main).
+# It only publishes a version that is not on Central yet, so bump <version> in java/pom.xml
+# (no -SNAPSHOT), push to main, then run it. Re-running for an already published version stops
+# before deploying. Central never accepts the same version twice, and the POM's autoPublish=true
+# makes a release irreversible.
+#
+# "dry_run" builds, tests and GPG-signs everything but does not upload, to rehearse a release.
+#
+# Required repository secrets (Settings -> Secrets and variables -> Actions):
+#   CENTRAL_USERNAME, CENTRAL_PASSWORD  - Central Portal user token (not the portal login)
+#   GPG_PRIVATE_KEY                     - output of: gpg --armor --export-secret-keys <fingerprint>
+#   GPG_PASSPHRASE                      - passphrase of that key
+name: Publish Java client
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Build, test and sign only - do not upload to Maven Central"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: java-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        working-directory: java
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK and Maven Central / GPG credentials
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          server-id: mavenCentralDeploymentRepo # matches publishingServerId in pom.xml
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: MAVEN_GPG_PASSPHRASE
+
+      - name: Check this version is new
+        id: version
+        run: |
+          eval_pom() { mvn -B -q -DforceStdout help:evaluate -Dexpression="$1"; }
+          GROUP=$(eval_pom project.groupId); ARTIFACT=$(eval_pom project.artifactId); VERSION=$(eval_pom project.version)
+          case "$VERSION" in *-SNAPSHOT) echo "::error::Refusing to release a SNAPSHOT ($VERSION)"; exit 1;; esac
+          URL="https://repo.maven.apache.org/maven2/$(echo "$GROUP" | tr . /)/$ARTIFACT/$VERSION/$ARTIFACT-$VERSION.pom"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "$GROUP:$ARTIFACT:$VERSION -> $URL -> HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "::error::$GROUP:$ARTIFACT:$VERSION is already on Maven Central. Bump <version> in java/pom.xml first."; exit 1
+          elif [ "$STATUS" != "404" ]; then
+            echo "::error::Could not tell whether $VERSION is published (HTTP $STATUS); not publishing."; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Run unit tests
+        run: mvn -B -Dgpg.skip=true test
+
+      - name: Dry run - build and sign only
+        if: ${{ inputs.dry_run }}
+        run: mvn -B verify
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Sign, build and publish to Maven Central
+        if: ${{ !inputs.dry_run }}
+        run: mvn -B deploy
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}

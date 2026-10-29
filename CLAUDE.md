@@ -43,6 +43,9 @@ Commands (run from `java/`):
   parameters with `require(...)` *before* sending, so bad input never costs a request.
 - Optional query params / body fields must be omitted when null (`query(...)`, `body(...)` helpers) — RESTEasy
   throws on null query values, and the server treats a sent null differently from an absent field.
+- A chat session must be initialized (`INIT_SESSION`) before its first `CHAT`; the service otherwise returns HTTP 200
+  with a "not been initialized" message and saves nothing. Never treat a 200 chat reply as proof the chat worked —
+  assert on the content.
 - Build a fresh JAX-RS `Client` per `execute()` (done in `withTarget`); do not cache one on the instance.
 - `FAIL_ON_UNKNOWN_PROPERTIES` stays **off** (`MnemoObjectMapperProvider`): a newer server must not break an older client.
 - Javadoc example code in `<pre>{@code ...}</pre>`: write a line-leading `@` as `&#64;`, and keep generics inside
@@ -67,4 +70,5 @@ public half must be on a keyserver first.
 
 ### Not supported (deliberately)
 
-SSE streaming (`init/stream`, `chat/stream`), multipart ingest / OCR, and admin endpoints.
+Token-by-token SSE chat (`chat/stream`), multipart ingest / OCR, and admin endpoints. (`init/stream` *is* used, by
+`INIT_SESSION`, but read to completion rather than streamed to the caller.)

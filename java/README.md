@@ -24,7 +24,18 @@ Every client works the same way: a **builder** collects the parameters, `build()
 `execute()` makes the call and returns the result. The builder holds all the arguments, which is why
 `execute()` takes none.
 
+A new chat session has to be initialized once before its first message. Initialization loads the tenant's
+memory, so it can take ten seconds or more; after that, chat as often as you like in the same session.
+
 ```java
+MnemoClient init = new MnemoChatClient.Builder()
+        .apiKey(System.getenv("MNEMO_API_KEY"))
+        .tenantId("acme")
+        .sessionId("session-1")
+        .operation(MnemoChatClient.Operation.INIT_SESSION)
+        .build();
+init.execute();
+
 MnemoClient client = new MnemoChatClient.Builder()
         .apiKey(System.getenv("MNEMO_API_KEY"))
         .tenantId("acme")
@@ -35,6 +46,9 @@ MnemoClient client = new MnemoChatClient.Builder()
 ChatMessageResponse reply = client.execute();
 System.out.println(reply.message());
 ```
+
+Skipping the initialization step does not fail: the service answers HTTP 200 with the text "This session has not
+been initialized yet", and nothing is saved.
 
 Declare the client as the `MnemoClient` interface: every builder's `build()` returns a `MnemoClient`, so your
 code does not depend on a specific implementation. `execute()` is generic, so the result type is inferred from
@@ -144,7 +158,8 @@ any request), `NOT_FOUND`, `SERVER_ERROR`, `IO_ERROR` (service unreachable) and 
 
 ## Not supported
 
-Streaming (server-sent events), file ingest and OCR uploads, and the administrative endpoints (account and
+Token-by-token streaming chat (`chat/stream`; `INIT_SESSION` does use the init event stream, but reads it to the
+end and returns the result), file ingest and OCR uploads, and the administrative endpoints (account and
 user management, API token management, billing, RAG configuration CRUD) are not part of this client.
 
 Within the network API, these calls are not covered yet: grant-removal notices, subscriber counts, changing a

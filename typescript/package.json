@@ -1,0 +1,40 @@
+{
+  "name": "@panaxon/mnemo-client",
+  "version": "1.0.0",
+  "description": "TypeScript client for the MNEMO API, the multi-tenant AI memory service from Panaxon AI",
+  "license": "Apache-2.0",
+  "author": "PANAXON.AI, LLC",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.test.json",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build && npm test"
+  },
+  "keywords": [
+    "mnemo",
+    "panaxon",
+    "memory",
+    "rag",
+    "llm"
+  ],
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

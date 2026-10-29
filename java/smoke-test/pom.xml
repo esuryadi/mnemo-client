@@ -10,7 +10,7 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <mnemo.version>0.1.0</mnemo.version>
+        <mnemo.version>1.0.0</mnemo.version>
     </properties>
     <dependencies>
         <dependency>

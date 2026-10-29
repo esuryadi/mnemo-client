@@ -7,3 +7,14 @@ target/
 
 # OS
 .DS_Store
+
+# TypeScript
+node_modules/
+dist/
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+build/
+.pytest_cache/

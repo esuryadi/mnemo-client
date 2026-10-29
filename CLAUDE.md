@@ -4,23 +4,28 @@ Public client libraries for the MNEMO REST API (backend lives in the separate `m
 module `mnemo-rest`). Apache 2.0, published to Maven Central as `ai.panaxon:mnemo-client`
 (namespace `ai.panaxon`, verified in the Central Portal). The Java *packages* stay `com.panaxon.ai.*` — the
 `groupId` and the package names are independent, and renaming packages would break every consumer's imports.
+The TypeScript and Python clients are built and tested but **not published** (npm / PyPI names are placeholders).
 
 ## Layout
 
-- `java/` — the Java client (done). `python/`, `typescript/` — planned, empty.
-- Put per-language notes in that language's folder; this file is for rules common to the repo.
+- `java/` — the Java client (the reference implementation; published).
+- `typescript/` — TypeScript client, Node 18+, ESM, zero runtime deps. Notes: `typescript/CLAUDE.md`.
+- `python/` — Python client, 3.9+, stdlib only. Notes: `python/CLAUDE.md`.
+- Put per-language notes in that language's folder; this file is for rules common to the repo, plus the Java
+  client's commands and release process.
+- The three clients must stay **in parity**: same clients, operations, paths, body-vs-query placement, defaults,
+  validation and error codes. A backend change or a new operation lands in all three, each with its test, and the
+  tests are ports of each other (same cases, same asserted paths and query strings).
 
-## Java client (`java/`)
+Unit tests, one per language (none needs the network):
 
-Commands (run from `java/`):
+- Java: `cd java && mvn test` (read `Tests run: N`)
+- TypeScript: `cd typescript && npm test && npm run typecheck`
+- Python: `cd python && PYTHONPATH=src:tests python3 -m unittest discover -s tests`
 
-- `mvn test` — unit tests, no network.
-- `mvn -Dgpg.skip=true verify -DskipITs=false` — adds integration tests. They skip themselves unless
-  `MNEMO_API_KEY` etc. are set (see `java/README.md`). **Always pass `-Dgpg.skip=true` unless actually releasing:**
-  the GPG plugin is bound to `verify` and will prompt for a passphrase.
-- Do not use `mvn -q test` to judge a change: it prints nothing either way. Read `Tests run: N` and check N > 0.
+## The pattern (follow it for any new client, in every language)
 
-### The pattern (follow it for any new client)
+Described in Java terms (`switch`, package-private, records); `typescript/CLAUDE.md` and `python/CLAUDE.md` say how each point maps there.
 
 1. `MnemoXxxClient` interface extends `MnemoClient`, with a nested `Builder extends MnemoClientBuilder<Builder>`.
 2. The **builder only collects parameters**. `build()` passes `this` to `MnemoXxxClientImpl`; `execute()` takes no
@@ -36,32 +41,48 @@ Commands (run from `java/`):
 5. Response types: typed records in `com.panaxon.ai.model` for the core calls (chat, RAG, settings); other calls
    return `Map` / `List<Map>` / `Object` parsed JSON. Document the return type on each `Operation` constant.
 
-### Conventions
+## Conventions
 
-- Every `.java` file starts with the Apache 2.0 header — copy it from `MnemoClient.java`.
+- Every source file starts with the Apache 2.0 header — copy it from `MnemoClient.java` / `MnemoClient.ts` /
+  `client.py` (the line after the license names the language).
 - Failures are `MnemoClientException` carrying a `MnemoError.Code` and the HTTP status. Validate required
   parameters with `require(...)` *before* sending, so bad input never costs a request.
-- Optional query params / body fields must be omitted when null (`query(...)`, `body(...)` helpers) — RESTEasy
-  throws on null query values, and the server treats a sent null differently from an absent field.
+- Optional query params / body fields must be omitted when null (`query(...)`, `body(...)` helpers) — the server
+  treats a sent null differently from an absent field (and in Java, RESTEasy throws on null query values).
 - A chat session must be initialized (`INIT_SESSION`) before its first `CHAT`. The service now refuses a chat on an
   uninitialized session with HTTP 409 (mnemo PR #95, deployed 2026-10-29); until then it answered 200 with a "not
   been initialized" text and saved nothing, which is how an early integration test passed without ever getting a
   real reply. Still assert on the content of a chat reply, not just on success.
-- Build a fresh JAX-RS `Client` per `execute()` (done in `withTarget`); do not cache one on the instance.
-- `FAIL_ON_UNKNOWN_PROPERTIES` stays **off** (`MnemoObjectMapperProvider`): a newer server must not break an older client.
-- Javadoc example code in `<pre>{@code ...}</pre>`: write a line-leading `@` as `&#64;`, and keep generics inside
-  `{@code}`. The javadoc jar is built at `package`, which `mvn test` does not exercise — run
-  `mvn -Dgpg.skip=true package` after editing javadoc.
+- Tolerate response fields the client does not know: a newer server must not break an older client.
 
-### Backend facts that matter
+## Backend facts that matter
 
 - Base URL is `https://mnemo-api.panaxon.ai/api` — the `/api` prefix is required (the bare host 404s).
   `mnemo-rest.panaxon.ai` does not exist.
 - Auth header is `X-Mnemo-Api-Token`. Errors are `{"error": "..."}`. Dates are ISO-8601 strings.
 - Tenant tokens may only act on their own `tenantId` (else 403). MnemoRAG needs a Pro/Enterprise tenant token;
   the master token cannot call it. Admin-only endpoints (RAG config CRUD, tokens, billing) are out of scope.
-- When the backend changes a DTO, update the matching record in `model/` and the `Operation` javadoc.
+- When the backend changes a DTO, update the matching model in all three clients (`model/`, `model/index.ts`,
+  `model.py`) and the `Operation` docs.
   Source of truth: `mnemo/mnemo-rest/src/main/java/com/panaxon/ai/mnemo/rest/` (`*Resource.java`, `record/`).
+
+## Java client (`java/`)
+
+Commands (run from `java/`):
+
+- `mvn test` — unit tests, no network.
+- `mvn -Dgpg.skip=true verify -DskipITs=false` — adds integration tests. They skip themselves unless
+  `MNEMO_API_KEY` etc. are set (see `java/README.md`). **Always pass `-Dgpg.skip=true` unless actually releasing:**
+  the GPG plugin is bound to `verify` and will prompt for a passphrase.
+- Do not use `mvn -q test` to judge a change: it prints nothing either way. Read `Tests run: N` and check N > 0.
+
+Java-specific conventions:
+
+- Build a fresh JAX-RS `Client` per `execute()` (done in `withTarget`); do not cache one on the instance.
+- `FAIL_ON_UNKNOWN_PROPERTIES` stays **off** (`MnemoObjectMapperProvider`): a newer server must not break an older client.
+- Javadoc example code in `<pre>{@code ...}</pre>`: write a line-leading `@` as `&#64;`, and keep generics inside
+  `{@code}`. The javadoc jar is built at `package`, which `mvn test` does not exercise — run
+  `mvn -Dgpg.skip=true package` after editing javadoc.
 
 ### Release
 

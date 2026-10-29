@@ -29,13 +29,13 @@ import com.panaxon.ai.exception.MnemoClientException;
 import com.panaxon.ai.exception.MnemoError;
 import jakarta.ws.rs.ProcessingException;
 import jakarta.ws.rs.client.Client;
-import jakarta.ws.rs.client.ClientBuilder;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -76,7 +76,11 @@ abstract class AbstractMnemoClient implements MnemoClient {
             throw invalid("timeout must be zero or positive");
         }
         long millis = builder.timeout().toMillis();
-        try (Client client = ClientBuilder.newBuilder()
+        // RESTEasy is built directly, not found through ClientBuilder.newBuilder(): that picks whichever JAX-RS implementation
+        // comes first on the application's classpath, and with Jersey it cannot send PATCH (RENAME_SESSION,
+        // UPDATE_SUBJECT_DESCRIPTION). The class is in an "internal" package but has a public constructor and is
+        // the documented way to instantiate RESTEasy's client directly.
+        try (Client client = new ResteasyClientBuilderImpl()
                 .connectTimeout(millis, TimeUnit.MILLISECONDS)
                 .readTimeout(millis, TimeUnit.MILLISECONDS)
                 .register(new MnemoObjectMapperProvider())

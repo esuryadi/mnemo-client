@@ -37,6 +37,7 @@ export interface Received {
     query: string | null;
     token: string | undefined;
     accept: string | undefined;
+    authorization: string | undefined;
     body: string;
 }
 
@@ -49,6 +50,7 @@ export class FakeMnemoServer {
     private status = 200;
     private replyBody = "{}";
     private contentType = "application/json";
+    private readonly routes = new Map<string, { status: number; body: string }[]>();
     private readonly server: Server;
 
     private constructor() {
@@ -66,11 +68,15 @@ export class FakeMnemoServer {
                     query: q < 0 ? null : raw.substring(q + 1),
                     token: req.headers["x-mnemo-api-token"] as string | undefined,
                     accept: req.headers["accept"],
+                    authorization: req.headers["authorization"],
                     body: Buffer.concat(chunks).toString("utf8"),
                 });
                 res.setHeader("Content-Type", this.contentType);
-                res.statusCode = this.status;
-                res.end(this.status === 204 ? undefined : this.replyBody);
+                const queued = this.routes.get(rawPath);
+                const reply = queued === undefined ? { status: this.status, body: this.replyBody }
+                    : queued.length > 1 ? queued.shift()! : queued[0]!;
+                res.statusCode = reply.status;
+                res.end(reply.status === 204 ? undefined : reply.body);
             });
         });
     }
@@ -85,6 +91,12 @@ export class FakeMnemoServer {
         this.status = status;
         this.replyBody = body;
         this.contentType = contentType;
+        return this;
+    }
+
+    /** Answers requests to {@code path} with {@code replies} in turn; the last one repeats. */
+    replyOn(path: string, ...replies: [number, string][]): this {
+        this.routes.set(path, replies.map(([status, body]) => ({ status, body })));
         return this;
     }
 

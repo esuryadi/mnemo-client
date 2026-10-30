@@ -27,16 +27,20 @@ from __future__ import annotations
 
 import http.client
 import json
+import base64
 import re
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from .client import MnemoClient, MnemoClientBuilder
 from .exception import MnemoClientException, MnemoError
 
 TOKEN_HEADER = "X-Mnemo-Api-Token"
+TOKEN_REFRESH_MARGIN = 60.0
+"""Seconds before a client-credentials token expires at which it is replaced."""
 
 T = TypeVar("T")
 
@@ -60,7 +64,12 @@ class AbstractMnemoClient(MnemoClient):
     def _with_target(self, call: Callable[[str], T]) -> T:
         """Runs ``call`` with the service base URL after validating the builder settings."""
         settings = self._settings
-        if _is_blank(settings._api_key):
+        has_client = not (_is_blank(settings._client_id) and _is_blank(settings._client_secret))
+        if has_client and not _is_blank(settings._api_key):
+            raise _invalid("set either api_key or client_credentials, not both")
+        if has_client and (_is_blank(settings._client_id) or _is_blank(settings._client_secret)):
+            raise _invalid("client_credentials needs both a client id and a client secret")
+        if not has_client and _is_blank(settings._api_key):
             raise MnemoClientException(MnemoError(MnemoError.Code.MISSING_API_KEY))
         if _is_blank(settings._base_url):
             raise _invalid("base_url is required")
@@ -94,12 +103,30 @@ class AbstractMnemoClient(MnemoClient):
         return parse_events(self._request(method, url, "text/event-stream", body))
 
     def _request(self, method: str, url: str, accept: str, body: Optional[Dict[str, Any]]) -> str:
-        headers = {"Accept": accept, TOKEN_HEADER: str(self._settings._api_key)}
+        if self._uses_client_credentials():
+            try:
+                return self._perform(method, url, accept, body, self._access_token(False))
+            except MnemoClientException as e:
+                if e.http_status != 401:
+                    raise
+            # the cached token was revoked or its client was rotated: fetch a new one and try once more
+            return self._perform(method, url, accept, body, self._access_token(True))
+        return self._perform(method, url, accept, body, None)
+
+    def _perform(self, method: str, url: str, accept: str, body: Optional[Dict[str, Any]],
+                 bearer: Optional[str]) -> str:
+        headers = {"Accept": accept}
+        if bearer is None:
+            headers[TOKEN_HEADER] = str(self._settings._api_key)
+        else:
+            headers["Authorization"] = "Bearer " + bearer
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
             data = json.dumps(body).encode("utf-8")
-        request = urllib.request.Request(url, data=data, headers=headers, method=method)
+        return self._open(urllib.request.Request(url, data=data, headers=headers, method=method))
+
+    def _open(self, request: urllib.request.Request) -> str:
         timeout = self._settings._timeout or None
         try:
             with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -110,6 +137,35 @@ class AbstractMnemoClient(MnemoClient):
             raise _failure(e.code, _read_error_body(e)) from None
         except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
             raise MnemoClientException(MnemoError(MnemoError.Code.IO_ERROR)) from e
+
+    def _uses_client_credentials(self) -> bool:
+        return not _is_blank(self._settings._client_id)
+
+    def _access_token(self, replace: bool) -> str:
+        """Returns the cached bearer token, fetching one first when there is none, it is about to expire, or
+        ``replace`` is set. The token and its lock live on the builder, which every call of this client shares."""
+        settings = self._settings
+        with settings._token_lock:
+            cached = settings._token
+            if not replace and cached is not None and cached[1] - time.monotonic() > TOKEN_REFRESH_MARGIN:
+                return cached[0]
+            settings._token = self._fetch_token()
+            return settings._token[0]
+
+    def _fetch_token(self) -> Tuple[str, float]:
+        settings = self._settings
+        credentials = quote(str(settings._client_id), safe="") + ":" + quote(str(settings._client_secret), safe="")
+        request = urllib.request.Request(
+            str(settings._base_url).rstrip("/") + "/oauth/token",
+            data=urlencode({"grant_type": "client_credentials"}).encode("ascii"),
+            headers={"Accept": "application/json", "Content-Type": "application/x-www-form-urlencoded",
+                     "Authorization": "Basic " + base64.b64encode(credentials.encode("utf-8")).decode("ascii")},
+            method="POST")
+        parsed = _parse_json(self._open(request))
+        try:
+            return str(parsed["access_token"]), time.monotonic() + float(parsed["expires_in"])
+        except (KeyError, TypeError, ValueError) as e:
+            raise MnemoClientException(MnemoError(MnemoError.Code.SERIALIZATION_ERROR)) from e
 
     def _tenant_id(self) -> Optional[str]:
         return self._settings._tenant_id

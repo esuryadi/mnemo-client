@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
@@ -38,8 +40,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * so the clients can be tested end to end through the real RESTEasy stack without the MNEMO service.
  */
 final class FakeMnemoServer implements AutoCloseable {
-    record Received(String method, String path, String rawPath, String query, String token, String accept, String body) { }
+    record Received(String method, String path, String rawPath, String query, String token, String accept, String body,
+                    String authorization) { }
 
+    record Reply(int status, String body) { }
+
+    private final Map<String, List<Reply>> routes = new ConcurrentHashMap<>();
     private final HttpServer server;
     private final List<Received> requests = new CopyOnWriteArrayList<>();
     private volatile int status = 200;
@@ -53,8 +59,13 @@ final class FakeMnemoServer implements AutoCloseable {
             requests.add(new Received(exchange.getRequestMethod(), exchange.getRequestURI().getPath(),
                     exchange.getRequestURI().getRawPath(), exchange.getRequestURI().getRawQuery(),
                     exchange.getRequestHeaders().getFirst(AbstractMnemoClient.TOKEN_HEADER),
-                    exchange.getRequestHeaders().getFirst("Accept"), body));
-            byte[] bytes = reply.getBytes(StandardCharsets.UTF_8);
+                    exchange.getRequestHeaders().getFirst("Accept"), body,
+                    exchange.getRequestHeaders().getFirst("Authorization")));
+            List<Reply> queued = routes.get(exchange.getRequestURI().getRawPath());
+            Reply next = queued == null ? new Reply(status, reply)
+                    : queued.size() > 1 ? queued.remove(0) : queued.get(0);
+            int status = next.status();
+            byte[] bytes = next.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", contentType);
             if (status == 204) {
                 exchange.sendResponseHeaders(204, -1);
@@ -78,8 +89,18 @@ final class FakeMnemoServer implements AutoCloseable {
         return this;
     }
 
+    /** Answers requests to {@code path} with {@code replies} in turn; the last one repeats. */
+    FakeMnemoServer replyOn(String path, Reply... replies) {
+        routes.put(path, new CopyOnWriteArrayList<>(replies));
+        return this;
+    }
+
     String url() {
         return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    List<Received> requests() {
+        return requests;
     }
 
     Received last() {

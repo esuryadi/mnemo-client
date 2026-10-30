@@ -65,6 +65,11 @@ Described in Java terms (`switch`, package-private, records); `typescript/CLAUDE
 - Base URL is `https://mnemo-api.panaxon.ai/api` — the `/api` prefix is required (the bare host 404s).
   `mnemo-rest.panaxon.ai` does not exist.
 - Auth header is `X-Mnemo-Api-Token`. Errors are `{"error": "..."}`. Dates are ISO-8601 strings.
+- OAuth client credentials are an alternative to the API key (set one, never both): `POST {baseUrl}/oauth/token`
+  with `grant_type=client_credentials` and HTTP Basic `id:secret` returns `{access_token, expires_in}` (1 hour, no
+  refresh token), sent as `Authorization: Bearer`. The token is cached on the builder (shared by every call of a
+  client, guarded against concurrent fetches), replaced 60 seconds before it expires, and replaced once when the
+  service answers 401. A wrong secret is 401 `invalid_client`; a locked client is 429.
 - Tenant tokens may only act on their own `tenantId` (else 403). MnemoRAG needs a Pro/Enterprise tenant token;
   the master token cannot call it. Admin-only endpoints (RAG config CRUD, tokens, billing) are out of scope.
 - When the backend changes a DTO, update the matching model in all three clients (`model/`, `model/index.ts`,

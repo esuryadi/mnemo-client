@@ -26,8 +26,8 @@
 import type { MnemoClient } from "./MnemoClient.js";
 
 /**
- * <b>MnemoClientBuilder</b> is the base of every client builder. It collects the API key required for
- * authentication and the optional service endpoint and timeout. The builder only collects parameters:
+ * <b>MnemoClientBuilder</b> is the base of every client builder. It collects the credentials (an API key,
+ * or an OAuth client id and secret) and the optional service endpoint and timeout. The builder only collects parameters:
  * {@code build()} hands the builder to the client implementation, which reads every parameter from it when
  * {@link MnemoClient.execute} is called. Setters return {@code this}, typed as the concrete subclass, so they
  * chain into the subclass setters.
@@ -37,6 +37,12 @@ export abstract class MnemoClientBuilder {
     static readonly DEFAULT_BASE_URL = "https://mnemo-api.panaxon.ai/api";
 
     /** @internal */ _apiKey?: string;
+    /** @internal */ _clientId?: string;
+    /** @internal */ _clientSecret?: string;
+    /** @internal The cached client-credentials token and the time (ms) it expires at. */
+    _token?: { value: string; expiresAt: number };
+    /** @internal The token fetch in flight, so concurrent calls share one exchange. */
+    _tokenFetch?: Promise<string>;
     /** @internal */ _baseUrl: string = MnemoClientBuilder.DEFAULT_BASE_URL;
     /** @internal */ _tenantId?: string;
     /** @internal */ _timeoutMs: number = 120_000;
@@ -44,6 +50,18 @@ export abstract class MnemoClientBuilder {
     /** Sets the MNEMO API token, sent as the {@code X-Mnemo-Api-Token} header. */
     apiKey(apiKey: string): this {
         this._apiKey = apiKey;
+        return this;
+    }
+
+    /**
+     * Authenticates with an OAuth client instead of an API key. The client id and secret (created in Dorothy
+     * under Security, OAuth Clients) are exchanged at {@code {baseUrl}/oauth/token} for a one-hour bearer token.
+     * The token is fetched on first use, reused, and fetched again shortly before it expires, or after the
+     * service rejects it. Set this or {@link apiKey}, not both.
+     */
+    clientCredentials(clientId: string, clientSecret: string): this {
+        this._clientId = clientId;
+        this._clientSecret = clientSecret;
         return this;
     }
 

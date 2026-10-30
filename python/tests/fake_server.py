@@ -30,7 +30,7 @@ import socketserver
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Callable, List, NamedTuple, Optional
+from typing import Callable, Dict, List, NamedTuple, Optional, Tuple
 from urllib.parse import unquote
 
 from mnemo_client import MnemoClientException
@@ -44,6 +44,7 @@ class Received(NamedTuple):
     token: Optional[str]
     accept: Optional[str]
     body: str
+    authorization: Optional[str] = None
 
 
 class _QuickBindServer(ThreadingHTTPServer):
@@ -59,6 +60,7 @@ class FakeMnemoServer:
         self.status = 200
         self.reply_body = "{}"
         self.content_type = "application/json"
+        self.routes: Dict[str, List[Tuple[int, str]]] = {}
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -68,13 +70,16 @@ class FakeMnemoServer:
                 raw_path, _, query = self.path.partition("?")
                 fake.requests.append(Received(self.command, unquote(raw_path), raw_path, query or None,
                                               self.headers.get("X-Mnemo-Api-Token"), self.headers.get("Accept"),
-                                              body))
-                self.send_response(fake.status)
+                                              body, self.headers.get("Authorization")))
+                queued = fake.routes.get(raw_path)
+                status, reply = queued.pop(0) if queued and len(queued) > 1 else \
+                    (queued[0] if queued else (fake.status, fake.reply_body))
+                self.send_response(status)
                 self.send_header("Content-Type", fake.content_type)
-                if fake.status == 204:
+                if status == 204:
                     self.end_headers()
                     return
-                data = fake.reply_body.encode("utf-8")
+                data = reply.encode("utf-8")
                 self.send_header("Content-Length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
@@ -92,6 +97,11 @@ class FakeMnemoServer:
         self.status = status
         self.reply_body = body
         self.content_type = content_type
+        return self
+
+    def reply_on(self, path: str, *replies: Tuple[int, str]) -> FakeMnemoServer:
+        """Answers requests to ``path`` with ``replies`` in turn; the last one repeats."""
+        self.routes[path] = list(replies)
         return self
 
     def url(self) -> str:

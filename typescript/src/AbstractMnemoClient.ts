@@ -139,7 +139,7 @@ export abstract class AbstractMnemoClient implements MnemoClient {
         const credentials = `${encodeURIComponent(s._clientId!)}:${encodeURIComponent(s._clientSecret!)}`;
         const text = await this.perform("POST", s._baseUrl.replace(/\/+$/, "") + "/oauth/token", "application/json",
             new URLSearchParams({ grant_type: "client_credentials" }), {
-                Authorization: "Basic " + Buffer.from(credentials, "utf8").toString("base64"),
+                Authorization: "Basic " + btoa(credentials),
             });
         const reply = parseJson(text);
         const expiresIn = Number(reply?.expires_in);

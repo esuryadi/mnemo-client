@@ -49,7 +49,7 @@ differs for Python.
 
 ## Release (PyPI, `mnemo-client`)
 
-Not published yet. Released by hand from GitHub: Actions -> "Publish Python client" -> Run workflow (`dry_run`
+Released by hand from GitHub: Actions -> "Publish Python client" -> Run workflow (`dry_run`
 first; `index: testpypi` rehearses the upload on test.pypi.org). `.github/workflows/python-publish.yml` has the
 details. It runs the tests on 3.9 and 3.14, builds the sdist and wheel, runs `twine check --strict` and installs the
 wheel, and refuses a version already on the index. PyPI never accepts a version twice (not even after a delete), so a
@@ -63,6 +63,7 @@ That is trusted publishing: no token is stored anywhere, and every upload gets a
 After every release, run `smoke-test/verify-pypi.sh <version> --wait` (add `--test-pypi` for TestPyPI). It installs
 the release from the real index into an empty virtual environment with no pip cache, checks the files, the
 attestations, `py.typed` and `__version__`, then runs `smoke_test.py` (a health check and a bad-key 401, neither of
-which costs LLM budget). `PYTHON=/usr/bin/python3` checks it on 3.9. After the first release, change the README's
-Install section to `pip install mnemo-client`, and the status in the root README and in Dorothy's Help
-(`HelpModal.tsx`).
+which costs LLM budget). `PYTHON=/usr/bin/python3` checks it on 3.9. `PYTHON=/opt/homebrew/bin/python3.14` checks a current one.
+
+`1.1.0` is the first release (2026-10-30, trusted publishing, attestations on both files, verified with the script
+on 3.9 and 3.14).

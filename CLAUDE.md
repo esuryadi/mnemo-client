@@ -4,9 +4,8 @@ Public client libraries for the MNEMO REST API (backend lives in the separate `m
 module `mnemo-rest`). Apache 2.0, published to Maven Central as `ai.panaxon:mnemo-client`
 (namespace `ai.panaxon`, verified in the Central Portal). The Java *packages* stay `com.panaxon.ai.*` — the
 `groupId` and the package names are independent, and renaming packages would break every consumer's imports.
-The TypeScript client is published to npm as `@panaxon/mnemo-client`. The Python client is built and tested but
-**not published yet** (PyPI `mnemo-client`; its workflow is ready). The Release sections of `typescript/CLAUDE.md` and
-`python/CLAUDE.md` describe each.
+The TypeScript client is published to npm as `@panaxon/mnemo-client` and the Python client to PyPI as
+`mnemo-client`; the Release sections of `typescript/CLAUDE.md` and `python/CLAUDE.md` describe each.
 
 ## Layout
 

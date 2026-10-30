@@ -69,4 +69,7 @@ minutes (it cached the 404 from before the release), which is why the script wai
 only the version URL.
 
 `1.1.0` is the first release (2026-10-30, published with `NPM_TOKEN`, provenance attached, verified with the
-script).
+script). Trusted publishing was set up right after it (with "Allow npm publish" ticked: without it the publisher may
+only stage releases) and `NPM_TOKEN` was deleted, so releases need no secret. The first release through trusted
+publishing has not happened yet: if it fails to authenticate, check the publisher's workflow filename and
+environment (`npm`) before anything else.

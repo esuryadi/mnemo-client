@@ -14,12 +14,29 @@ codes.
 
 ## Install
 
+From [npm](https://www.npmjs.com/package/@panaxon/mnemo-client):
+
 ```sh
 npm install @panaxon/mnemo-client
+# or
+yarn add @panaxon/mnemo-client
+pnpm add @panaxon/mnemo-client
 ```
 
-Releases are published from GitHub Actions with npm provenance, so `npm audit signatures` can confirm that a release
-was built from this repository.
+To pin a version: `npm install @panaxon/mnemo-client@1.1.0`. The package has no runtime dependencies.
+
+```ts
+import { MnemoChatClient, MnemoClientException } from "@panaxon/mnemo-client";
+```
+
+- **Node.js 18 or newer.** The client uses the built-in `fetch`.
+- **ESM only.** Load it with `import`. A CommonJS project can `require()` it on Node 20.19+ / 22.12+, which can load
+  ES modules, or use `await import("@panaxon/mnemo-client")` on any version. In a CommonJS TypeScript project, set
+  `"module": "nodenext"`: under `node16`, TypeScript refuses a static import of an ES module.
+- **TypeScript**: the type declarations are included, so no `@types` package is needed.
+
+Releases are published from GitHub Actions with npm provenance. To confirm that what you installed was built from
+this repository, run `npm audit signatures` in your project.
 
 ## Quick start
 

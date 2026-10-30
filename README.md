@@ -9,6 +9,45 @@ M.N.E.M.O. API public client library to communicate with Mnemo API
 | Python | Available on PyPI (`mnemo-client`) | [python/README.md](python/README.md) |
 | TypeScript | Available on npm (`@panaxon/mnemo-client`) | [typescript/README.md](typescript/README.md) |
 
+All three share one version number, so the same version gives you the same operations in every language.
+
+## Install
+
+**Java** (17+), from Maven Central:
+
+```xml
+<dependency>
+    <groupId>ai.panaxon</groupId>
+    <artifactId>mnemo-client</artifactId>
+    <version>1.1.0</version>
+</dependency>
+```
+
+or with Gradle: `implementation("ai.panaxon:mnemo-client:1.1.0")`
+
+**TypeScript / JavaScript** (Node 18+), from npm:
+
+```sh
+npm install @panaxon/mnemo-client     # or: yarn add / pnpm add @panaxon/mnemo-client
+```
+
+```ts
+import { MnemoChatClient } from "@panaxon/mnemo-client";
+```
+
+**Python** (3.9+), from PyPI. You install `mnemo-client` and import `mnemo_client`:
+
+```sh
+pip install mnemo-client              # or: uv add mnemo-client / poetry add mnemo-client
+```
+
+```python
+from mnemo_client import MnemoChatClient
+```
+
+The TypeScript and Python clients have no runtime dependencies. Usage, operations and error handling are in each
+language's README.
+
 ## Authentication
 
 Every client authenticates in one of two ways. Use one, not both:

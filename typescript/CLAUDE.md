@@ -47,7 +47,7 @@ differs for TypeScript.
 
 ## Release (npm, `@panaxon/mnemo-client`)
 
-Not published yet. Released by hand from GitHub: Actions -> "Publish TypeScript client" -> Run workflow
+Released by hand from GitHub: Actions -> "Publish TypeScript client" -> Run workflow
 (`dry_run` first). `.github/workflows/typescript-publish.yml` has the details. It refuses a pre-release version or one
 already on npm, and npm never accepts a version twice (not even after an unpublish), so a real run is
 **irreversible**: bump `version` in `package.json` first.
@@ -64,5 +64,9 @@ One-time setup, done by a maintainer on npmjs.com:
 After every release, run `smoke-test/verify-npm.sh <version> --wait`. It installs the release from the real registry
 into an empty project with an empty npm cache, checks the files, the registry signature and the provenance
 attestation, then type-checks `SmokeTest.ts` with `skipLibCheck` off and runs it (a health check and a bad-key 401,
-neither of which costs LLM budget). After the first release, change the README's Install section to
-`npm install @panaxon/mnemo-client`, and the status in the root README and in Dorothy's Help (`HelpModal.tsx`).
+neither of which costs LLM budget). Right after a release npm's CDN can keep answering 404 for the package for a few
+minutes (it cached the 404 from before the release), which is why the script waits for the package document and not
+only the version URL.
+
+`1.1.0` is the first release (2026-10-30, published with `NPM_TOKEN`, provenance attached, verified with the
+script).

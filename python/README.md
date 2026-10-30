@@ -14,11 +14,12 @@ codes. Method and attribute names are snake_case.
 
 ## Install
 
-The package is not on PyPI yet. Install it from source:
-
 ```sh
-pip install /path/to/mnemo-client/python
+pip install mnemo-client
 ```
+
+Releases are uploaded from GitHub Actions through PyPI trusted publishing, and each file carries a provenance
+attestation (shown on its page on pypi.org) that ties it to this repository.
 
 ## Quick start
 

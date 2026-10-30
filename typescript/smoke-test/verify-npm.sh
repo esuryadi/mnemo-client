@@ -22,7 +22,12 @@ bad() { echo "  FAIL  $1"; fail=1; }
 
 echo "== Checking $NAME@$VERSION on npm"
 deadline=$(( $(date +%s) + 1800 ))
-until [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ]; do
+# wait for the package document that `npm install` reads, not just the version URL: right after a first release the
+# registry's CDN can serve the version while still answering 404 for the package
+listed() {
+  curl -s "${URL%/*}" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{process.exit(JSON.parse(s).versions?.[process.argv[1]]?0:1)}catch{process.exit(1)}})' "$VERSION"
+}
+until [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL")" = "200" ] && listed; do
   if ! $WAIT || [ "$(date +%s)" -gt "$deadline" ]; then
     echo "  $NAME@$VERSION is not on the registry ($URL); rerun with --wait to keep trying."; exit 2
   fi

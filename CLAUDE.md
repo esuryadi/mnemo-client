@@ -109,7 +109,7 @@ checksums and GPG signatures, then compiles and runs `SmokeTest` against it. A n
 a couple of hours to appear on repo.maven.apache.org, hence `--wait`. Do not `mvn install` the library into `~/.m2`
 and forget it there: that hides a failed Central download.
 
-`0.1.0` and `1.0.0` are both published (0.1.0 first, verified with the script, then 1.0.0).
+`0.1.0`, `1.0.0` and `1.1.0` are published (0.1.0 first, verified with the script, then 1.0.0; 1.1.0 added OAuth client credentials and was verified with the script on 2026-10-30).
 
 ### Not supported (deliberately)
 

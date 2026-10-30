@@ -14,12 +14,30 @@ codes. Method and attribute names are snake_case.
 
 ## Install
 
+From [PyPI](https://pypi.org/project/mnemo-client/):
+
 ```sh
 pip install mnemo-client
+# or
+uv add mnemo-client
+poetry add mnemo-client
 ```
 
-Releases are uploaded from GitHub Actions through PyPI trusted publishing, and each file carries a provenance
-attestation (shown on its page on pypi.org) that ties it to this repository.
+To pin a version, put `mnemo-client==1.1.0` in `requirements.txt` (or `mnemo-client>=1.1,<2` to take compatible
+updates). The package has no dependencies outside the standard library.
+
+The package you install is `mnemo-client`, with a dash; the module you import is `mnemo_client`, with an underscore:
+
+```python
+from mnemo_client import MnemoChatClient, MnemoClientException
+```
+
+- **Python 3.9 or newer.**
+- **Typed**: the package ships `py.typed`, so mypy and Pyright check your calls against it with no stub package.
+- To check the installed version: `python -c "import mnemo_client; print(mnemo_client.__version__)"`.
+
+Releases are uploaded from GitHub Actions through PyPI trusted publishing. Each file carries a provenance
+attestation, shown on its page on pypi.org, that ties it to this repository.
 
 ## Quick start
 

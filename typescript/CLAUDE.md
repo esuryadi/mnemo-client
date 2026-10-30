@@ -35,6 +35,10 @@ differs for TypeScript.
   subject name becomes `%2F`. Query strings go through `query()`, which keeps insertion order and drops
   `null`/`undefined`. The tests assert exact query strings.
 - Node 18 is the floor (`fetch`, `AbortSignal.timeout`). The package is ESM only.
+- `src` must not use Node-only globals (`Buffer`, `process`, `node:*` imports): use web-standard APIs (`btoa`,
+  `TextEncoder`, `URLSearchParams`). `tsconfig.json` (the build) loads no `@types/node` (TypeScript 7 no longer
+  includes `@types/*` by default), so a `Buffer` fails `npm run build` only. vitest and `npm run typecheck` (which
+  does load node types, for the tests) both miss it, so run `npm run build` before pushing.
 - `LICENSE` here is a copy of the repo root's, because npm only packs files inside `typescript/`. `files` in
   `package.json` limits the tarball to `dist/` and `LICENSE` (plus `package.json` and the README, always included);
   the publish workflow fails if anything else gets in.

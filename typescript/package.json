@@ -1,6 +1,6 @@
 {
   "name": "@panaxon/mnemo-client",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "TypeScript client for the MNEMO API, the multi-tenant AI memory service from Panaxon AI",
   "license": "Apache-2.0",
   "author": "PANAXON.AI, LLC",

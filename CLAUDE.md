@@ -21,6 +21,9 @@ The TypeScript and Python clients are built and tested but **not published yet**
 - The three clients must stay **in parity**: same clients, operations, paths, body-vs-query placement, defaults,
   validation and error codes. A backend change or a new operation lands in all three, each with its test, and the
   tests are ports of each other (same cases, same asserted paths and query strings).
+- The three clients share **one version number**: a release of one language bumps `java/pom.xml`,
+  `typescript/package.json` (with `npm version <v> --no-git-tag-version`, which updates the lock file too) and
+  `__version__` in `python/src/mnemo_client/__init__.py` to the same value, even if the other two are not released.
 
 Unit tests, one per language (none needs the network):
 

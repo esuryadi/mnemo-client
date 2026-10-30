@@ -9,6 +9,17 @@ M.N.E.M.O. API public client library to communicate with Mnemo API
 | Python | Built and tested, not yet on PyPI (install from source) | [python/README.md](python/README.md) |
 | TypeScript | Built and tested, not yet on npm (install from source) | [typescript/README.md](typescript/README.md) |
 
+## Authentication
+
+Every client authenticates in one of two ways. Use one, not both:
+
+- **API key:** create one in Dorothy under Security, API Keys. Pass it with `apiKey(...)` (`api_key(...)` in Python).
+- **OAuth client:** create one in Dorothy under Security, OAuth Clients, and pass its ID and secret with
+  `clientCredentials(clientId, clientSecret)` (`client_credentials(...)` in Python). The client exchanges them for a
+  one-hour bearer token, reuses it and renews it before it expires. Available from version 1.1.0.
+
+API keys keep working; an OAuth client is an alternative, not a replacement. Examples are in each language's README.
+
 ## Using MNEMO from Claude
 
 No client library needed: add `https://mnemo-mcp.panaxon.ai/api/mcp` as a custom connector in Claude (web,

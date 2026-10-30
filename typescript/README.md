@@ -14,15 +14,12 @@ codes.
 
 ## Install
 
-The package is not on npm yet. Build it from source and install it from the folder:
-
 ```sh
-cd typescript
-npm install
-npm run build
-# then, in your project:
-npm install /path/to/mnemo-client/typescript
+npm install @panaxon/mnemo-client
 ```
+
+Releases are published from GitHub Actions with npm provenance, so `npm audit signatures` can confirm that a release
+was built from this repository.
 
 ## Quick start
 

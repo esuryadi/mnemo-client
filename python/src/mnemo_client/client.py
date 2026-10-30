@@ -25,8 +25,9 @@
 
 from __future__ import annotations
 
+import threading
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, Tuple, TypeVar
 
 B = TypeVar("B", bound="MnemoClientBuilder")
 
@@ -46,7 +47,7 @@ class MnemoClient(ABC):
 class MnemoClientBuilder(ABC):
     """The base of every client builder.
 
-    It collects the API key required for authentication and the optional service endpoint and timeout. The
+    It collects the credentials (an API key, or an OAuth client id and secret) and the optional service endpoint and timeout. The
     builder only collects parameters: ``build()`` hands the builder to the client implementation, which reads every
     parameter from it when :meth:`MnemoClient.execute` is called. Setters return the builder, so they chain.
     """
@@ -56,6 +57,10 @@ class MnemoClientBuilder(ABC):
 
     def __init__(self) -> None:
         self._api_key: Optional[str] = None
+        self._client_id: Optional[str] = None
+        self._client_secret: Optional[str] = None
+        self._token_lock = threading.Lock()
+        self._token: Optional[Tuple[str, float]] = None  # (access token, time.monotonic() it expires at)
         self._base_url: Optional[str] = MnemoClientBuilder.DEFAULT_BASE_URL
         self._tenant_id: Optional[str] = None
         self._timeout: Optional[float] = 120.0
@@ -63,6 +68,18 @@ class MnemoClientBuilder(ABC):
     def api_key(self: B, api_key: str) -> B:
         """Sets the MNEMO API token, sent as the ``X-Mnemo-Api-Token`` header."""
         self._api_key = api_key
+        return self
+
+    def client_credentials(self: B, client_id: str, client_secret: str) -> B:
+        """Authenticates with an OAuth client instead of an API key.
+
+        The client id and secret (created in Dorothy under Security, OAuth Clients) are exchanged at
+        ``{base_url}/oauth/token`` for a one-hour bearer token. The token is fetched on first use, reused, and
+        fetched again shortly before it expires, or after the service rejects it. Set this or :meth:`api_key`,
+        not both.
+        """
+        self._client_id = client_id
+        self._client_secret = client_secret
         return self
 
     def base_url(self: B, base_url: str) -> B:

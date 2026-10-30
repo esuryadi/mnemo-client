@@ -65,6 +65,18 @@ client is safe to share between threads.
 Create an API token in Dorothy and pass it with `.api_key(...)`. It is sent in the `X-Mnemo-Api-Token` header.
 Keep it out of source code: read it from an environment variable or a secret store.
 
+**Or use an OAuth client.** In Dorothy, open Security, then OAuth Clients, and create a client. Pass its ID and
+secret instead of an API key:
+
+```python
+builder = MnemoChatClient.Builder() \
+    .client_credentials(os.environ["MNEMO_CLIENT_ID"], os.environ["MNEMO_CLIENT_SECRET"])
+```
+
+The client exchanges them at `{base_url}/oauth/token` for a one-hour bearer token, reuses it, and gets a new one
+shortly before it expires or if the service rejects it. Use either `.api_key(...)` or `.client_credentials(...)`,
+not both. A client has a fixed role (USER or ADMIN) and its secret can be rotated in Dorothy without downtime.
+
 The service endpoint defaults to `https://mnemo-api.panaxon.ai/api`. To point at a self-hosted or test
 deployment, override it with `.base_url(...)`. The timeout is 120 seconds by default; change it with
 `.timeout(seconds)`, where `0` means no timeout.

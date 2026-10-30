@@ -29,7 +29,7 @@ import java.time.Duration;
 
 /**
  * <b>MnemoClientBuilder</b> is an abstract builder class for constructing instances of {@link MnemoClient}.
- * It provides a fluent interface for setting the API key required for client authentication, and the
+ * It provides a fluent interface for setting the credentials (an API key, or an OAuth client id and secret), and the
  * optional service endpoint and timeout. The builder only collects parameters: {@code build()} hands the
  * builder to the client implementation, which reads every parameter from it when
  * {@link MnemoClient#execute()} is called.
@@ -44,6 +44,10 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
     public static final String DEFAULT_BASE_URL = "https://mnemo-api.panaxon.ai/api";
 
     private String apiKey;
+    private String clientId;
+    private String clientSecret;
+    private String token;
+    private long tokenExpiresAtNanos;
     private String baseUrl = DEFAULT_BASE_URL;
     private String tenantId;
     private Duration timeout = Duration.ofSeconds(120);
@@ -54,6 +58,18 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
     /** Sets the MNEMO API token, sent as the {@code X-Mnemo-Api-Token} header. */
     public B apiKey(String apiKey) {
         this.apiKey = apiKey;
+        return self();
+    }
+
+    /**
+     * Authenticates with an OAuth client instead of an API key. The client id and secret (created in Dorothy
+     * under Security, OAuth Clients) are exchanged at {@code {baseUrl}/oauth/token} for a one-hour bearer token.
+     * The token is fetched on first use, reused, and fetched again shortly before it expires, or after the
+     * service rejects it. Set this or {@link #apiKey(String)}, not both.
+     */
+    public B clientCredentials(String clientId, String clientSecret) {
+        this.clientId = clientId;
+        this.clientSecret = clientSecret;
         return self();
     }
 
@@ -77,6 +93,24 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
 
     String apiKey() {
         return apiKey;
+    }
+
+    String clientId() {
+        return clientId;
+    }
+
+    String clientSecret() {
+        return clientSecret;
+    }
+
+    /** The cached client-credentials token, or {@code null} when none was fetched or it is about to expire. */
+    synchronized String cachedToken(long nowNanos, long marginNanos) {
+        return token != null && tokenExpiresAtNanos - nowNanos > marginNanos ? token : null;
+    }
+
+    synchronized void cacheToken(String token, long expiresAtNanos) {
+        this.token = token;
+        this.tokenExpiresAtNanos = expiresAtNanos;
     }
 
     String baseUrl() {

@@ -29,6 +29,8 @@ import type { MnemoClient } from "./MnemoClient.js";
 import type { MnemoClientBuilder } from "./MnemoClientBuilder.js";
 
 export const TOKEN_HEADER = "X-Mnemo-Api-Token";
+/** Milliseconds before a client-credentials token expires at which it is replaced. */
+const TOKEN_REFRESH_MARGIN_MS = 60_000;
 
 /** One server-sent event: its name ({@code message} when none was given) and its data. */
 export interface SseEvent {
@@ -56,7 +58,14 @@ export abstract class AbstractMnemoClient implements MnemoClient {
 
     /** Runs {@code call} with the service base URL after validating the builder settings. */
     protected async withTarget<T>(call: (base: string) => Promise<T>): Promise<T> {
-        if (isBlank(this.settings._apiKey)) {
+        const hasClient = !(isBlank(this.settings._clientId) && isBlank(this.settings._clientSecret));
+        if (hasClient && !isBlank(this.settings._apiKey)) {
+            throw invalid("set either apiKey or clientCredentials, not both");
+        }
+        if (hasClient && (isBlank(this.settings._clientId) || isBlank(this.settings._clientSecret))) {
+            throw invalid("clientCredentials needs both a client id and a client secret");
+        }
+        if (!hasClient && isBlank(this.settings._apiKey)) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.MISSING_API_KEY));
         }
         if (isBlank(this.settings._baseUrl)) {
@@ -90,9 +99,66 @@ export abstract class AbstractMnemoClient implements MnemoClient {
     }
 
     private async request(method: string, url: string, accept: string, body?: object): Promise<string> {
-        const headers: Record<string, string> = { Accept: accept, [TOKEN_HEADER]: this.settings._apiKey! };
-        if (body !== undefined) {
+        if (isBlank(this.settings._clientId)) {
+            return this.perform(method, url, accept, body, { [TOKEN_HEADER]: this.settings._apiKey! });
+        }
+        try {
+            return await this.perform(method, url, accept, body, await this.bearer(false));
+        } catch (e) {
+            if (!(e instanceof MnemoClientException) || e.httpStatus !== 401) {
+                throw e;
+            }
+        }
+        // the cached token was revoked or its client was rotated: fetch a new one and try once more
+        return this.perform(method, url, accept, body, await this.bearer(true));
+    }
+
+    private async bearer(replace: boolean): Promise<Record<string, string>> {
+        return { Authorization: "Bearer " + (await this.accessToken(replace)) };
+    }
+
+    /**
+     * Returns the cached bearer token, fetching one first when there is none, it is about to expire, or
+     * {@code replace} is set. The token lives on the builder, which every call of this client shares.
+     */
+    private async accessToken(replace: boolean): Promise<string> {
+        const s = this.settings;
+        if (!replace && s._token !== undefined && s._token.expiresAt - Date.now() > TOKEN_REFRESH_MARGIN_MS) {
+            return s._token.value;
+        }
+        if (s._tokenFetch === undefined) {
+            s._tokenFetch = this.fetchToken().finally(() => {
+                s._tokenFetch = undefined;
+            });
+        }
+        return s._tokenFetch;
+    }
+
+    private async fetchToken(): Promise<string> {
+        const s = this.settings;
+        const credentials = `${encodeURIComponent(s._clientId!)}:${encodeURIComponent(s._clientSecret!)}`;
+        const text = await this.perform("POST", s._baseUrl.replace(/\/+$/, "") + "/oauth/token", "application/json",
+            new URLSearchParams({ grant_type: "client_credentials" }), {
+                Authorization: "Basic " + Buffer.from(credentials, "utf8").toString("base64"),
+            });
+        const reply = parseJson(text);
+        const expiresIn = Number(reply?.expires_in);
+        if (typeof reply?.access_token !== "string" || !Number.isFinite(expiresIn)) {
+            throw new MnemoClientException(new MnemoError(MnemoError.Code.SERIALIZATION_ERROR));
+        }
+        s._token = { value: reply.access_token, expiresAt: Date.now() + expiresIn * 1000 };
+        return reply.access_token;
+    }
+
+    private async perform(method: string, url: string, accept: string, body: object | undefined,
+                           auth: Record<string, string>): Promise<string> {
+        const headers: Record<string, string> = { Accept: accept, ...auth };
+        let payload: string | URLSearchParams | undefined;
+        if (body instanceof URLSearchParams) {
+            payload = body; // fetch sets the form content type itself
+        } else if (body !== undefined) {
             headers["Content-Type"] = "application/json";
+            payload = JSON.stringify(body);
         }
         const timeout = this.settings._timeoutMs;
         let status = 0;
@@ -101,7 +167,7 @@ export abstract class AbstractMnemoClient implements MnemoClient {
             const response = await fetch(url, {
                 method: method.toUpperCase(),
                 headers,
-                body: body === undefined ? undefined : JSON.stringify(body),
+                body: payload,
                 signal: timeout > 0 ? AbortSignal.timeout(timeout) : undefined,
             });
             status = response.status;

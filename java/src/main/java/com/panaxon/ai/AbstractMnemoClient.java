@@ -32,12 +32,18 @@ import jakarta.ws.rs.client.Client;
 import jakarta.ws.rs.client.Entity;
 import jakarta.ws.rs.client.Invocation;
 import jakarta.ws.rs.client.WebTarget;
+import jakarta.ws.rs.core.Form;
 import jakarta.ws.rs.core.GenericType;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -54,6 +60,8 @@ import java.util.concurrent.TimeUnit;
  */
 abstract class AbstractMnemoClient implements MnemoClient {
     static final String TOKEN_HEADER = "X-Mnemo-Api-Token";
+    /** How long before a client-credentials token expires it is replaced. */
+    static final Duration TOKEN_REFRESH_MARGIN = Duration.ofSeconds(60);
 
     static final GenericType<Map<String, Object>> MAP = new GenericType<>() { };
     static final GenericType<List<Map<String, Object>>> LIST = new GenericType<>() { };
@@ -66,7 +74,14 @@ abstract class AbstractMnemoClient implements MnemoClient {
 
     /** Runs {@code call} against a freshly configured JAX-RS client after validating the builder settings. */
     <T> T withTarget(TargetCall<T> call) throws MnemoClientException {
-        if (isBlank(builder.apiKey())) {
+        boolean hasClient = !(isBlank(builder.clientId()) && isBlank(builder.clientSecret()));
+        if (hasClient && !isBlank(builder.apiKey())) {
+            throw invalid("set either apiKey or clientCredentials, not both");
+        }
+        if (hasClient && (isBlank(builder.clientId()) || isBlank(builder.clientSecret()))) {
+            throw invalid("clientCredentials needs both a client id and a client secret");
+        }
+        if (!hasClient && isBlank(builder.apiKey())) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.MISSING_API_KEY, null));
         }
         if (isBlank(builder.baseUrl())) {
@@ -75,25 +90,88 @@ abstract class AbstractMnemoClient implements MnemoClient {
         if (builder.timeout() == null || builder.timeout().isNegative()) {
             throw invalid("timeout must be zero or positive");
         }
-        long millis = builder.timeout().toMillis();
-        // RESTEasy is built directly, not found through ClientBuilder.newBuilder(): that picks whichever JAX-RS implementation
-        // comes first on the application's classpath, and with Jersey it cannot send PATCH (RENAME_SESSION,
-        // UPDATE_SUBJECT_DESCRIPTION). The class is in an "internal" package but has a public constructor and is
-        // the documented way to instantiate RESTEasy's client directly.
-        try (Client client = new ResteasyClientBuilderImpl()
-                .connectTimeout(millis, TimeUnit.MILLISECONDS)
-                .readTimeout(millis, TimeUnit.MILLISECONDS)
-                .register(new MnemoObjectMapperProvider())
-                .build()) {
+        try (Client client = newClient()) {
             return call.run(client.target(builder.baseUrl()));
         } catch (ProcessingException e) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.IO_ERROR, null), e);
         }
     }
 
+    private Client newClient() {
+        long millis = builder.timeout().toMillis();
+        // RESTEasy is built directly, not found through ClientBuilder.newBuilder(): that picks whichever JAX-RS implementation
+        // comes first on the application's classpath, and with Jersey it cannot send PATCH (RENAME_SESSION,
+        // UPDATE_SUBJECT_DESCRIPTION). The class is in an "internal" package but has a public constructor and is
+        // the documented way to instantiate RESTEasy's client directly.
+        return new ResteasyClientBuilderImpl()
+                .connectTimeout(millis, TimeUnit.MILLISECONDS)
+                .readTimeout(millis, TimeUnit.MILLISECONDS)
+                .register(new MnemoObjectMapperProvider())
+                .build();
+    }
+
+    /** Adds the credentials to a request: the API key header, or the bearer token of the OAuth client. */
+    private Invocation.Builder authorize(Invocation.Builder request, boolean replaceToken) throws MnemoClientException {
+        return isBlank(builder.clientId())
+                ? request.header(TOKEN_HEADER, builder.apiKey())
+                : request.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(replaceToken));
+    }
+
+    /**
+     * Returns the cached bearer token, fetching one first when there is none, it is about to expire, or
+     * {@code replace} is set. The token lives on the builder, which every call of this client shares.
+     */
+    private String accessToken(boolean replace) throws MnemoClientException {
+        synchronized (builder) {
+            String cached = replace ? null : builder.cachedToken(System.nanoTime(), TOKEN_REFRESH_MARGIN.toNanos());
+            return cached != null ? cached : fetchToken();
+        }
+    }
+
+    private String fetchToken() throws MnemoClientException {
+        String credentials = URLEncoder.encode(builder.clientId(), StandardCharsets.UTF_8) + ":"
+                + URLEncoder.encode(builder.clientSecret(), StandardCharsets.UTF_8);
+        try (Client client = newClient();
+             Response response = client.target(builder.baseUrl()).path("oauth/token").request(MediaType.APPLICATION_JSON)
+                     .header(HttpHeaders.AUTHORIZATION, "Basic "
+                             + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8)))
+                     .post(Entity.form(new Form("grant_type", "client_credentials")))) {
+            if (response.getStatus() >= 400) {
+                throw failure(response.getStatus(), response);
+            }
+            Map<String, Object> reply = response.readEntity(MAP);
+            if (!(reply.get("access_token") instanceof String accessToken)
+                    || !(reply.get("expires_in") instanceof Number expiresIn)) {
+                throw new MnemoClientException(new MnemoError(MnemoError.Code.SERIALIZATION_ERROR, null));
+            }
+            builder.cacheToken(accessToken, System.nanoTime() + TimeUnit.SECONDS.toNanos(expiresIn.longValue()));
+            return accessToken;
+        } catch (ProcessingException e) {
+            throw new MnemoClientException(new MnemoError(MnemoError.Code.SERIALIZATION_ERROR, null), e);
+        }
+    }
+
+    /** Whether a failure means the cached bearer token should be replaced and the call tried once more. */
+    private boolean tokenRejected(MnemoClientException e) {
+        return !isBlank(builder.clientId()) && e.getHttpStatus() == 401;
+    }
+
     /** Sends one request and maps the response; a {@code null} {@code type} or an empty body yields {@code null}. */
     <T> T send(String method, WebTarget target, Object body, GenericType<T> type) throws MnemoClientException {
-        Invocation.Builder request = target.request(MediaType.APPLICATION_JSON).header(TOKEN_HEADER, builder.apiKey());
+        try {
+            return attempt(method, target, body, type, false);
+        } catch (MnemoClientException e) {
+            if (!tokenRejected(e)) {
+                throw e;
+            }
+        }
+        // the cached token was revoked or its client was rotated: fetch a new one and try once more
+        return attempt(method, target, body, type, true);
+    }
+
+    private <T> T attempt(String method, WebTarget target, Object body, GenericType<T> type, boolean replaceToken)
+            throws MnemoClientException {
+        Invocation.Builder request = authorize(target.request(MediaType.APPLICATION_JSON), replaceToken);
         Invocation invocation = body == null ? request.build(method) : request.build(method, Entity.json(body));
         try (Response response = invocation.invoke()) {
             int status = response.getStatus();
@@ -116,8 +194,20 @@ abstract class AbstractMnemoClient implements MnemoClient {
      * The stream is finite for the calls that use this (it ends after a final event), so it is read whole.
      */
     List<SseEvent> sendEventStream(String method, WebTarget target, Object body) throws MnemoClientException {
-        Invocation invocation = target.request(MediaType.SERVER_SENT_EVENTS)
-                .header(TOKEN_HEADER, builder.apiKey()).build(method, Entity.json(body));
+        try {
+            return attemptEventStream(method, target, body, false);
+        } catch (MnemoClientException e) {
+            if (!tokenRejected(e)) {
+                throw e;
+            }
+        }
+        return attemptEventStream(method, target, body, true);
+    }
+
+    private List<SseEvent> attemptEventStream(String method, WebTarget target, Object body, boolean replaceToken)
+            throws MnemoClientException {
+        Invocation invocation = authorize(target.request(MediaType.SERVER_SENT_EVENTS), replaceToken)
+                .build(method, Entity.json(body));
         try (Response response = invocation.invoke()) {
             if (response.getStatus() >= 400) {
                 throw failure(response.getStatus(), response);

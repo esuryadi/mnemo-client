@@ -51,6 +51,7 @@ final class FakeMnemoServer implements AutoCloseable {
     private volatile int status = 200;
     private volatile String reply = "{}";
     private volatile String contentType = "application/json";
+    private volatile String location;
 
     FakeMnemoServer() throws IOException {
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -67,6 +68,9 @@ final class FakeMnemoServer implements AutoCloseable {
             int status = next.status();
             byte[] bytes = next.body().getBytes(StandardCharsets.UTF_8);
             exchange.getResponseHeaders().add("Content-Type", contentType);
+            if (location != null) {
+                exchange.getResponseHeaders().add("Location", location);
+            }
             if (status == 204) {
                 exchange.sendResponseHeaders(204, -1);
             } else {
@@ -86,6 +90,13 @@ final class FakeMnemoServer implements AutoCloseable {
         this.status = status;
         this.reply = body;
         this.contentType = contentType;
+        return this;
+    }
+
+    /** Answers every request with a redirect to {@code location}. */
+    FakeMnemoServer redirectTo(String location, int status) {
+        this.location = location;
+        this.status = status;
         return this;
     }
 

@@ -60,6 +60,7 @@ class FakeMnemoServer:
         self.status = 200
         self.reply_body = "{}"
         self.content_type = "application/json"
+        self.location: Optional[str] = None
         self.routes: Dict[str, List[Tuple[int, str]]] = {}
         fake = self
 
@@ -76,6 +77,8 @@ class FakeMnemoServer:
                     (queued[0] if queued else (fake.status, fake.reply_body))
                 self.send_response(status)
                 self.send_header("Content-Type", fake.content_type)
+                if fake.location is not None:
+                    self.send_header("Location", fake.location)
                 if status == 204:
                     self.end_headers()
                     return
@@ -97,6 +100,12 @@ class FakeMnemoServer:
         self.status = status
         self.reply_body = body
         self.content_type = content_type
+        return self
+
+    def redirect_to(self, location: str, status: int = 302) -> FakeMnemoServer:
+        """Answers every request with a redirect to ``location``."""
+        self.location = location
+        self.status = status
         return self
 
     def reply_on(self, path: str, *replies: Tuple[int, str]) -> FakeMnemoServer:

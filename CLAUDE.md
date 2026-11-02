@@ -24,6 +24,10 @@ The TypeScript client is published to npm as `@panaxon/mnemo-client` and the Pyt
   `typescript/package.json` (with `npm version <v> --no-git-tag-version`, which updates the lock file too) and
   `__version__` in `python/src/mnemo_client/__init__.py` to the same value, even if the other two are not released.
 
+Transport rules, the same in all three: `baseUrl` must be `https` (plain `http` only to `localhost`, `127.0.0.1`
+and `::1`), checked when a call is made, before anything is sent; redirects are never followed (the credentials
+travel in headers), a 3xx answer is an `INVALID_REQUEST` error carrying the HTTP status.
+
 Unit tests, one per language (none needs the network):
 
 - Java: `cd java && mvn test` (read `Tests run: N`)

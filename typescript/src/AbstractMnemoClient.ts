@@ -71,6 +71,7 @@ export abstract class AbstractMnemoClient implements MnemoClient {
         if (isBlank(this.settings._baseUrl)) {
             throw invalid("baseUrl is required");
         }
+        checkBaseUrl(this.settings._baseUrl);
         const timeout = this.settings._timeoutMs;
         if (typeof timeout !== "number" || !Number.isFinite(timeout) || timeout < 0) {
             throw invalid("timeout must be zero or positive");
@@ -168,9 +169,16 @@ export abstract class AbstractMnemoClient implements MnemoClient {
                 method: method.toUpperCase(),
                 headers,
                 body: payload,
+                // the credentials travel in headers, which fetch would resend to wherever a redirect points
+                redirect: "manual",
                 signal: timeout > 0 ? AbortSignal.timeout(timeout) : undefined,
             });
             status = response.status;
+            if (status >= 300 && status < 400) {
+                throw new MnemoClientException(new MnemoError(MnemoError.Code.INVALID_REQUEST,
+                    `the service answered with a redirect (HTTP ${status}), which is not followed so the `
+                    + "credentials are never sent to another location; check the baseUrl"), status);
+            }
             const text = await response.text();
             if (status >= 400) {
                 throw failure(status, text);
@@ -248,6 +256,22 @@ function failure(status: number, text: string): MnemoClientException {
         // the body was not the usual {"error": "..."} JSON; fall back to the code's default message
     }
     return new MnemoClientException(new MnemoError(code, detail), status);
+}
+
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** Refuses a base URL that is not https, except http to a loopback host, so credentials never travel in cleartext. */
+function checkBaseUrl(baseUrl: string): void {
+    let url: URL;
+    try {
+        url = new URL(baseUrl.trim());
+    } catch {
+        throw invalid("baseUrl is not a valid URL");
+    }
+    if (url.protocol === "https:" || (url.protocol === "http:" && LOOPBACK_HOSTS.has(url.hostname))) {
+        return;
+    }
+    throw invalid("baseUrl must use https (http is allowed only for localhost, 127.0.0.1 and ::1)");
 }
 
 export function isBlank(value: string | null | undefined): boolean {

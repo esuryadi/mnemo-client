@@ -39,6 +39,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -46,7 +48,9 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -87,6 +91,7 @@ abstract class AbstractMnemoClient implements MnemoClient {
         if (isBlank(builder.baseUrl())) {
             throw invalid("baseUrl is required");
         }
+        checkBaseUrl(builder.baseUrl());
         if (builder.timeout() == null || builder.timeout().isNegative()) {
             throw invalid("timeout must be zero or positive");
         }
@@ -106,6 +111,8 @@ abstract class AbstractMnemoClient implements MnemoClient {
         return new ResteasyClientBuilderImpl()
                 .connectTimeout(millis, TimeUnit.MILLISECONDS)
                 .readTimeout(millis, TimeUnit.MILLISECONDS)
+                // the credentials travel in headers, which the HTTP engine would resend to wherever a redirect points
+                .setFollowRedirects(false)
                 .register(new MnemoObjectMapperProvider())
                 .build();
     }
@@ -136,7 +143,7 @@ abstract class AbstractMnemoClient implements MnemoClient {
                      .header(HttpHeaders.AUTHORIZATION, "Basic "
                              + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8)))
                      .post(Entity.form(new Form("grant_type", "client_credentials")))) {
-            if (response.getStatus() >= 400) {
+            if (response.getStatus() >= 300) {
                 throw failure(response.getStatus(), response);
             }
             Map<String, Object> reply = response.readEntity(MAP);
@@ -175,7 +182,7 @@ abstract class AbstractMnemoClient implements MnemoClient {
         Invocation invocation = body == null ? request.build(method) : request.build(method, Entity.json(body));
         try (Response response = invocation.invoke()) {
             int status = response.getStatus();
-            if (status >= 400) {
+            if (status >= 300) {
                 throw failure(status, response);
             }
             if (type == null || status == 204 || !response.hasEntity()) {
@@ -209,7 +216,7 @@ abstract class AbstractMnemoClient implements MnemoClient {
         Invocation invocation = authorize(target.request(MediaType.SERVER_SENT_EVENTS), replaceToken)
                 .build(method, Entity.json(body));
         try (Response response = invocation.invoke()) {
-            if (response.getStatus() >= 400) {
+            if (response.getStatus() >= 300) {
                 throw failure(response.getStatus(), response);
             }
             return parseEvents(response.hasEntity() ? response.readEntity(String.class) : "");
@@ -258,6 +265,11 @@ abstract class AbstractMnemoClient implements MnemoClient {
     }
 
     private static MnemoClientException failure(int status, Response response) {
+        if (status < 400) {
+            return new MnemoClientException(new MnemoError(MnemoError.Code.INVALID_REQUEST, "%s",
+                    "the service answered with a redirect (HTTP " + status + "), which is not followed so the "
+                            + "credentials are never sent to another location; check the baseUrl"), status);
+        }
         MnemoError.Code code;
         if (status == 401) code = MnemoError.Code.UNAUTHORIZED;
         else if (status == 403) code = MnemoError.Code.FORBIDDEN;
@@ -279,6 +291,23 @@ abstract class AbstractMnemoClient implements MnemoClient {
                 ? new MnemoError(code, null)
                 : new MnemoError(code, "%s", detail);
         return new MnemoClientException(error, status);
+    }
+
+    /** Refuses a base URL that is not https, except http to a loopback host, so credentials never travel in cleartext. */
+    static void checkBaseUrl(String baseUrl) throws MnemoClientException {
+        URI uri;
+        try {
+            uri = new URI(baseUrl.trim());
+        } catch (URISyntaxException e) {
+            throw invalid("baseUrl is not a valid URL");
+        }
+        String scheme = uri.getScheme() == null ? "" : uri.getScheme().toLowerCase(Locale.ROOT);
+        String host = uri.getHost() == null ? "" : uri.getHost().toLowerCase(Locale.ROOT);
+        if (scheme.equals("https") && !host.isEmpty()
+                || scheme.equals("http") && Set.of("localhost", "127.0.0.1", "[::1]").contains(host)) {
+            return;
+        }
+        throw invalid("baseUrl must use https (http is allowed only for localhost, 127.0.0.1 and ::1)");
     }
 
     static boolean isBlank(String value) {

@@ -29,7 +29,7 @@ from __future__ import annotations
 
 from mnemo_client import MnemoChatClient, MnemoClient, MnemoError, MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient
 
-from fake_server import FakeServerTestCase
+from fake_server import FakeMnemoServer, FakeServerTestCase
 
 
 class MnemoOperationValidationTest(FakeServerTestCase):
@@ -105,3 +105,40 @@ class MnemoOperationValidationTest(FakeServerTestCase):
         for good in (0, 5, 2.5):
             self.assert_sends(f"timeout {good}", MnemoChatClient.Builder().api_key("k").base_url(self.server.url())
                               .timeout(good).operation(MnemoChatClient.Operation.HEALTH).build())
+
+
+class TransportHardeningTest(FakeServerTestCase):
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.target = FakeMnemoServer()
+
+    def tearDown(self) -> None:
+        self.target.close()
+        super().tearDown()
+
+    @staticmethod
+    def health(base_url: str) -> MnemoClient:
+        return MnemoChatClient.Builder().api_key("secret-key").base_url(base_url) \
+            .operation(MnemoChatClient.Operation.HEALTH).build()
+
+    def test_a_base_url_that_is_not_https_is_refused_except_http_to_loopback(self) -> None:
+        for bad in ("http://example.com/api", "file:///etc/passwd", "ftp://example.com", "example.com/api",
+                    "http://localhost.evil.com", "http://127.0.0.1.evil.com", "not a url", "https://"):
+            with self.subTest(base_url=bad):
+                e = self.rejection(self.health(bad).execute)
+                self.assertIs(MnemoError.Code.INVALID_REQUEST, e.error.code)
+        for ok in ("http://localhost:1", "http://127.0.0.1:1", "http://[::1]:1"):
+            with self.subTest(base_url=ok):
+                # allowed: the call is attempted (and fails to connect) instead of being refused up front
+                self.assertIs(MnemoError.Code.IO_ERROR, self.rejection(self.health(ok).execute).error.code)
+        self.health(self.server.url()).execute()
+        self.assertEqual(1, self.server.count())
+
+    def test_a_redirect_is_not_followed_so_the_token_never_reaches_the_other_location(self) -> None:
+        self.server.redirect_to(self.target.url() + "/stolen")
+        e = self.rejection(self.health(self.server.url()).execute)
+        self.assertIs(MnemoError.Code.INVALID_REQUEST, e.error.code)
+        self.assertEqual(302, e.http_status)
+        self.assertEqual(1, self.server.count())
+        self.assertEqual(0, self.target.count())

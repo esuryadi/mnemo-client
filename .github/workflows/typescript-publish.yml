@@ -25,32 +25,28 @@ on:
 
 permissions:
   contents: read
-  id-token: write # trusted publishing and provenance
 
 concurrency:
   group: typescript-publish
   cancel-in-progress: false
 
 jobs:
-  publish:
+  # Installs the dependencies and runs their scripts, so it gets no publishing permission (no id-token, no environment).
+  test:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
-    environment: npm
     defaults:
       run:
         working-directory: typescript
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "24"
           registry-url: https://registry.npmjs.org
           cache: npm
           cache-dependency-path: typescript/package-lock.json
-
-      - name: Use an npm that supports trusted publishing (11.5.1+)
-        run: npm install -g npm@11
 
       - name: Check this version is new
         id: version
@@ -89,12 +85,62 @@ jobs:
             }'
           rm pack.json
 
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: typescript-dist
+          path: typescript/dist/
+          if-no-files-found: error
+
+  # Installs no dependencies: it publishes the dist built and tested above, and is the only job with id-token.
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # trusted publishing and provenance
+    defaults:
+      run:
+        working-directory: typescript
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          registry-url: https://registry.npmjs.org
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: typescript-dist
+          path: typescript/dist/
+
+      - name: Use an npm that supports trusted publishing (11.5.1+)
+        run: npm install -g npm@11.21.1
+
+      - name: Check this version is new
+        id: version
+        run: |
+          NAME=$(node -p 'require("./package.json").name'); VERSION=$(node -p 'require("./package.json").version')
+          case "$VERSION" in *-*) echo "::error::Refusing to release a pre-release version ($VERSION)"; exit 1;; esac
+          URL="https://registry.npmjs.org/$(echo "$NAME" | sed 's|/|%2f|')/$VERSION"
+          STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$URL")
+          echo "$NAME@$VERSION -> $URL -> HTTP $STATUS"
+          if [ "$STATUS" = "200" ]; then
+            echo "::error::$NAME@$VERSION is already on npm. Bump \"version\" in typescript/package.json first."; exit 1
+          elif [ "$STATUS" != "404" ]; then
+            echo "::error::Could not tell whether $VERSION is published (HTTP $STATUS); not publishing."; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # --ignore-scripts: prepublishOnly would rebuild and re-test, which needs the dependencies this job does not install
       - name: Dry run - pack only
         if: ${{ inputs.dry_run }}
-        run: npm publish --dry-run --access public
+        run: npm publish --dry-run --access public --ignore-scripts
 
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --ignore-scripts
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} # empty once trusted publishing is set up

@@ -127,3 +127,44 @@ describe("operation validation", () => {
             .timeout(5000).operation(MnemoChatClient.Operation.HEALTH).build());
     });
 });
+
+describe("transport hardening", () => {
+    let server: FakeMnemoServer;
+    let target: FakeMnemoServer;
+
+    beforeEach(async () => {
+        server = await FakeMnemoServer.start();
+        target = await FakeMnemoServer.start();
+    });
+
+    afterEach(async () => {
+        await server.close();
+        await target.close();
+    });
+
+    const health = (baseUrl: string) => new MnemoChatClient.Builder().apiKey("secret-key").baseUrl(baseUrl)
+        .operation(MnemoChatClient.Operation.HEALTH).build();
+
+    it("refuses any base URL that is not https, except http to a loopback host", async () => {
+        for (const bad of ["http://example.com/api", "file:///etc/passwd", "ftp://example.com", "example.com/api",
+            "http://localhost.evil.com", "http://127.0.0.1.evil.com", "not a url"]) {
+            const e = await rejection(() => health(bad).execute());
+            expect([bad, e.error.code]).toEqual([bad, MnemoError.Code.INVALID_REQUEST]);
+        }
+        for (const ok of ["http://localhost:1", "http://127.0.0.1:1", "http://[::1]:1"]) {
+            // allowed: the call is attempted (and fails to connect), instead of being refused up front
+            expect((await rejection(() => health(ok).execute())).error.code).toBe(MnemoError.Code.IO_ERROR);
+        }
+        await health(server.url()).execute();
+        expect(server.count()).toBe(1);
+    });
+
+    it("does not follow a redirect, so the token is never sent to the other location", async () => {
+        server.redirectTo(target.url() + "/stolen");
+        const e = await rejection(() => health(server.url()).execute());
+        expect(e.error.code).toBe(MnemoError.Code.INVALID_REQUEST);
+        expect(e.httpStatus).toBe(302);
+        expect(server.count()).toBe(1);
+        expect(target.count()).toBe(0);
+    });
+});

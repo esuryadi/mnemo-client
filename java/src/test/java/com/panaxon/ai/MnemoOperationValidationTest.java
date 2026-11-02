@@ -134,4 +134,32 @@ class MnemoOperationValidationTest {
         assertDoesNotThrow(() -> new MnemoChatClient.Builder().apiKey("k").baseUrl(server.url()).timeout(timeout)
                 .operation(MnemoChatClient.Operation.HEALTH).build().execute());
     }
+
+    @Test
+    void aBaseUrlThatIsNotHttpsIsRefusedExceptHttpToLoopback() throws Exception {
+        for (String bad : new String[] {"http://example.com/api", "file:///etc/passwd", "ftp://example.com",
+                "example.com/api", "http://localhost.evil.com", "http://127.0.0.1.evil.com", "not a url"}) {
+            assertRefusedBeforeSending(bad, new MnemoChatClient.Builder().apiKey("k").baseUrl(bad)
+                    .operation(MnemoChatClient.Operation.HEALTH).build());
+        }
+        for (String ok : new String[] {"http://localhost:1", "http://127.0.0.1:1", "http://[::1]:1"}) {
+            // allowed: the call is attempted (and fails to connect) instead of being refused up front
+            MnemoClientException e = assertThrows(MnemoClientException.class, new MnemoChatClient.Builder()
+                    .apiKey("k").baseUrl(ok).operation(MnemoChatClient.Operation.HEALTH).build()::execute, ok);
+            assertEquals(MnemoError.Code.IO_ERROR, e.getError().code(), ok);
+        }
+        assertSendsWith(Duration.ofSeconds(5));
+    }
+
+    @Test
+    void aRedirectIsNotFollowedSoTheTokenNeverReachesTheOtherLocation() throws Exception {
+        try (FakeMnemoServer target = new FakeMnemoServer()) {
+            server.redirectTo(target.url() + "/stolen", 302);
+            MnemoClientException e = assertThrows(MnemoClientException.class, new MnemoChatClient.Builder()
+                    .apiKey("secret-key").baseUrl(server.url()).operation(MnemoChatClient.Operation.HEALTH).build()::execute);
+            assertEquals(302, e.getHttpStatus());
+            assertEquals(1, server.count());
+            assertEquals(0, target.count());
+        }
+    }
 }

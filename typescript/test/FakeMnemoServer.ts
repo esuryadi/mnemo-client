@@ -50,6 +50,7 @@ export class FakeMnemoServer {
     private status = 200;
     private replyBody = "{}";
     private contentType = "application/json";
+    private location: string | undefined;
     private readonly routes = new Map<string, { status: number; body: string }[]>();
     private readonly server: Server;
 
@@ -75,6 +76,9 @@ export class FakeMnemoServer {
                 const queued = this.routes.get(rawPath);
                 const reply = queued === undefined ? { status: this.status, body: this.replyBody }
                     : queued.length > 1 ? queued.shift()! : queued[0]!;
+                if (this.location !== undefined) {
+                    res.setHeader("Location", this.location);
+                }
                 res.statusCode = reply.status;
                 res.end(reply.status === 204 ? undefined : reply.body);
             });
@@ -95,6 +99,13 @@ export class FakeMnemoServer {
     }
 
     /** Answers requests to {@code path} with {@code replies} in turn; the last one repeats. */
+    /** Answers every request with a redirect to {@code location}. */
+    redirectTo(location: string, status = 302): this {
+        this.location = location;
+        this.status = status;
+        return this;
+    }
+
     replyOn(path: string, ...replies: [number, string][]): this {
         this.routes.set(path, replies.map(([status, body]) => ({ status, body })));
         return this;

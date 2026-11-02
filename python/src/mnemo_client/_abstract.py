@@ -33,7 +33,7 @@ import time
 import urllib.error
 import urllib.request
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar
-from urllib.parse import quote, urlencode
+from urllib.parse import quote, urlencode, urlsplit
 
 from .client import MnemoClient, MnemoClientBuilder
 from .exception import MnemoClientException, MnemoError
@@ -43,6 +43,35 @@ TOKEN_REFRESH_MARGIN = 60.0
 """Seconds before a client-credentials token expires at which it is replaced."""
 
 T = TypeVar("T")
+
+_LOOPBACK_HOSTS = ("localhost", "127.0.0.1", "::1")
+
+
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """urllib resends every request header, credentials included, to wherever a redirect points; the MNEMO API
+    never redirects, so a redirect is refused and surfaces as an HTTPError with the 3xx status."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[no-untyped-def]
+        return None
+
+
+_OPENER = urllib.request.build_opener(_RefuseRedirects)
+
+
+def _check_base_url(base_url: str) -> None:
+    """Refuses a base URL that is not https, except http to a loopback host, so credentials never travel in
+    cleartext."""
+    try:
+        parts = urlsplit(base_url.strip())
+        host = parts.hostname
+    except ValueError:
+        raise _invalid("base_url is not a valid URL") from None
+    scheme = parts.scheme.lower()
+    if scheme == "https" and host:
+        return
+    if scheme == "http" and host in _LOOPBACK_HOSTS:
+        return
+    raise _invalid("base_url must use https (http is allowed only for localhost, 127.0.0.1 and ::1)")
 
 
 class SseEvent(NamedTuple):
@@ -73,6 +102,7 @@ class AbstractMnemoClient(MnemoClient):
             raise MnemoClientException(MnemoError(MnemoError.Code.MISSING_API_KEY))
         if _is_blank(settings._base_url):
             raise _invalid("base_url is required")
+        _check_base_url(str(settings._base_url))
         timeout = settings._timeout
         if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not timeout >= 0:
             raise _invalid("timeout must be zero or positive")
@@ -129,11 +159,17 @@ class AbstractMnemoClient(MnemoClient):
     def _open(self, request: urllib.request.Request) -> str:
         timeout = self._settings._timeout or None
         try:
-            with urllib.request.urlopen(request, timeout=timeout) as response:
+            with _OPENER.open(request, timeout=timeout) as response:
                 if response.status == 204:
                     return ""
                 return response.read().decode("utf-8")
         except urllib.error.HTTPError as e:
+            if 300 <= e.code < 400:
+                e.close()
+                raise MnemoClientException(MnemoError(
+                    MnemoError.Code.INVALID_REQUEST,
+                    f"the service answered with a redirect (HTTP {e.code}), which is not followed so the "
+                    "credentials are never sent to another location; check the base_url"), e.code) from None
             raise _failure(e.code, _read_error_body(e)) from None
         except (urllib.error.URLError, http.client.HTTPException, OSError) as e:
             raise MnemoClientException(MnemoError(MnemoError.Code.IO_ERROR)) from e

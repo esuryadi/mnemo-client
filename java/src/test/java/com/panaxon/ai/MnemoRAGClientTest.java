@@ -79,6 +79,18 @@ class MnemoRAGClientTest {
     }
 
     @Test
+    void aNotFoundCarriesItsReasonAndAFoundAnswerHasNone() throws Exception {
+        server.reply(200, "{\"answer\":\"not found\",\"found\":false,\"retrievalTier\":\"not_found\",\"reason\":\"NOT_IN_MEMORY\"}");
+        RagQueryResponse notFound = builder().ragId("kb").query("q").build().execute();
+        assertFalse(notFound.found());
+        assertEquals("NOT_IN_MEMORY", notFound.reason());
+
+        server.reply(200, "{\"answer\":\"x\",\"found\":true}");
+        RagQueryResponse found = builder().ragId("kb").query("q").build().execute();
+        assertNull(found.reason());
+    }
+
+    @Test
     void additionalContextIsOmittedWhenNotSet() throws Exception {
         server.reply(200, "{\"answer\":\"x\",\"found\":false}");
         builder().ragId("kb").query("q").build().execute();

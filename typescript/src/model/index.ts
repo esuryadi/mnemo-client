@@ -74,6 +74,11 @@ export interface RagQueryResponse {
     retrievalTier?: string | null;
     subjectsUsed?: string[] | null;
     tokenUsage?: TokenUsage | null;
+    /**
+     * Only on a not-found, when the server knows why: OUT_OF_SCOPE, NOT_IN_MEMORY, AMBIGUOUS_ENTITY, PARTIAL_MATCH,
+     * INDEX_NOT_READY, UNVERIFIED_ANSWER (STALE is reserved and never sent). A string, so a later code does not break an older client.
+     */
+    reason?: string | null;
 }
 
 /** An account's MNEMO settings. The provider API key is never returned, only whether one is stored. */

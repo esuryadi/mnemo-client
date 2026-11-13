@@ -59,6 +59,16 @@ describe("MnemoRAGClient", () => {
         expect(JSON.parse(req.body)).toEqual({ query: "Refund window?", additionalContext: ["annual plans"] });
     });
 
+    it("a not-found carries its reason and a found answer has none", async () => {
+        server.reply(200, `{"answer":"not found","found":false,"retrievalTier":"not_found","reason":"PARTIAL_MATCH"}`);
+        const notFound = await builder().ragId("kb").query("q").build().execute();
+        expect(notFound.found).toBe(false);
+        expect(notFound.reason).toBe("PARTIAL_MATCH");
+
+        server.reply(200, `{"answer":"x","found":true}`);
+        expect((await builder().ragId("kb").query("q").build().execute()).reason).toBeUndefined();
+    });
+
     it("additional context is omitted when not set", async () => {
         server.reply(200, `{"answer":"x","found":false}`);
         await builder().ragId("kb").query("q").build().execute();

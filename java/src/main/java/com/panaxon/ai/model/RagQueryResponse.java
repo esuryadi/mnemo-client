@@ -31,9 +31,21 @@ import java.util.List;
 /**
  * The answer to a MnemoRAG query (result of {@link com.panaxon.ai.MnemoRAGClient}).
  *
+ * <p>{@code reason} is present only on a not-found ({@code found} false) when the server knows why: {@code OUT_OF_SCOPE},
+ * {@code NOT_IN_MEMORY}, {@code AMBIGUOUS_ENTITY}, {@code PARTIAL_MATCH}, {@code INDEX_NOT_READY}, {@code UNVERIFIED_ANSWER}. {@code STALE} is
+ * reserved and is never sent. It is a string, so a code added later does not break an older client.</p>
+ *
  * @author edward.suryadi
  * @since 1.0
  */
 public record RagQueryResponse(String answer, boolean found, String source, String authority, String confidence, Instant lastUpdated,
-                               String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage) {
+                               String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage, String reason) {
+
+    /**
+     * A response without a reason, the shape every response had before {@code reason} existed.
+     */
+    public RagQueryResponse(String answer, boolean found, String source, String authority, String confidence, Instant lastUpdated,
+                            String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage) {
+        this(answer, found, source, authority, confidence, lastUpdated, retrievalTier, subjectsUsed, tokenUsage, null);
+    }
 }

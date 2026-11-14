@@ -27,6 +27,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
     type MnemoClient,
     MnemoChatClient,
+    MnemoEmbedClient,
     MnemoError,
     MnemoNetworkClient,
     MnemoRAGClient,
@@ -69,6 +70,13 @@ describe("operation validation", () => {
             const client = new MnemoChatClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build();
             if (needNothing.has(op)) await assertSends(`chat ${op}`, client);
             else await assertRefusedBeforeSending(`chat ${op}`, client);
+        }
+    });
+
+    it("every embed operation checks its required parameters", async () => {
+        for (const op of Object.values(MnemoEmbedClient.Operation)) {
+            await assertRefusedBeforeSending(`embed ${op}`,
+                new MnemoEmbedClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build());
         }
     });
 

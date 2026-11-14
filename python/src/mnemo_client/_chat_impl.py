@@ -25,12 +25,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional
 
 from ._abstract import AbstractMnemoClient, _body, _invalid, _parse_json, _path, _query, _require
 from .chat import MnemoChatClient
 from .exception import MnemoClientException, MnemoError
-from .model import ChatMessageResponse
+from .model import ChatMessageResponse, StreamEvent
 
 Op = MnemoChatClient.Operation
 
@@ -49,6 +49,7 @@ class MnemoChatClientImpl(AbstractMnemoClient, MnemoChatClient):
             raise _invalid("operation is required")
         dispatch: Dict[MnemoChatClient.Operation, Callable[[str], Any]] = {
             Op.INIT_SESSION: self._init_session,
+            Op.CHAT_STREAM: self._chat_stream,
             Op.CHAT: self._chat,
             Op.LIST_SESSIONS: self._list_sessions,
             Op.GET_HISTORY: self._get_history,
@@ -86,6 +87,17 @@ class MnemoChatClientImpl(AbstractMnemoClient, MnemoChatClient):
             raise MnemoClientException(MnemoError(MnemoError.Code.INIT_FAILED,
                                                   "The service ended the stream before initialization completed"))
         return {**complete, "ready": True, "stages": stages}
+
+    def _chat_stream(self, base: str) -> Iterator[StreamEvent]:
+        b = self._builder
+        body = _body(tenantId=_require(self._tenant_id(), "tenant_id"), sessionId=_require(b._session_id, "session_id"),
+                     message=_require(b._message, "message"), role=b._role,
+                     answerFromJobText=b._answer_from_job_text)
+        return self._events(base, body)
+
+    def _events(self, base: str, body: Dict[str, Any]) -> Iterator[StreamEvent]:
+        for event in self._stream_events("POST", _path(base, "mnemo/chat/stream"), body):
+            yield StreamEvent(event.name, event.data)
 
     def _chat(self, base: str) -> ChatMessageResponse:
         b = self._builder

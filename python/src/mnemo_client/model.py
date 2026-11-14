@@ -161,3 +161,34 @@ class SettingsResponse:
                    lookback_days=data.get("lookbackDays") or 0, encrypt_data=bool(data.get("encryptData")),
                    shared_memory_ttl_hours=data.get("sharedMemoryTtlHours") or 0,
                    updated_at=_instant(data.get("updatedAt")))
+
+
+@dataclass(frozen=True)
+class EmbedToken:
+    """A short-lived token for the ``<mnemo-chat>`` component (result of ``MnemoEmbedClient.Operation.MINT_TOKEN``).
+
+    It is safe to hand to one visitor's browser; the API key that minted it is not. ``session_prefix`` is what every
+    session id used with the token must start with.
+    """
+
+    token: str
+    expires_at: datetime
+    tenant_id: Optional[str] = None
+    session_prefix: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> EmbedToken:
+        expires_at = _instant(data["expiresAt"])
+        if not isinstance(data["token"], str) or not isinstance(data["sessionPrefix"], str) or expires_at is None:
+            raise TypeError("malformed embed token")
+        return cls(token=data["token"], expires_at=expires_at, tenant_id=data.get("tenantId"),
+                   session_prefix=data["sessionPrefix"])
+
+
+@dataclass(frozen=True)
+class StreamEvent:
+    """One server-sent event of a streamed call (``MnemoChatClient.Operation.CHAT_STREAM``): the event name
+    (``message`` when the server gave none) and its data text, which is JSON for the MNEMO events."""
+
+    event: str
+    data: str

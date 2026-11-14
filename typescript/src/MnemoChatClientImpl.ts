@@ -27,7 +27,7 @@ import { AbstractMnemoClient, body, invalid, parseJson, path, query, require } f
 import { MnemoClientException } from "./exception/MnemoClientException.js";
 import { MnemoError } from "./exception/MnemoError.js";
 import { MnemoChatClient } from "./MnemoChatClient.js";
-import type { ChatMessageResponse, JsonObject } from "./model/index.js";
+import type { ChatMessageResponse, JsonObject, StreamEvent } from "./model/index.js";
 
 /**
  * <b>MnemoChatClientImpl</b> implements {@link MnemoChatClient}: one private method per operation.
@@ -53,6 +53,7 @@ export class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoCha
             switch (operation) {
                 case Op.INIT_SESSION: return this.initSession(base);
                 case Op.CHAT: return this.chat(base);
+                case Op.CHAT_STREAM: return this.chatStream(base);
                 case Op.LIST_SESSIONS: return this.listSessions(base);
                 case Op.GET_HISTORY: return this.getHistory(base);
                 case Op.RENAME_SESSION: return this.renameSession(base);
@@ -96,6 +97,15 @@ export class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoCha
 
     private chat(base: string): Promise<ChatMessageResponse> {
         return this.send("POST", path(base, "mnemo/chat"),
+            body({
+                tenantId: require(this.tenantId(), "tenantId"),
+                sessionId: require(this.builder._sessionId, "sessionId"),
+                message: require(this.builder._message, "message"),
+            }));
+    }
+
+    private chatStream(base: string): Promise<AsyncIterable<StreamEvent>> {
+        return this.streamEvents("POST", path(base, "mnemo/chat/stream"),
             body({
                 tenantId: require(this.tenantId(), "tenantId"),
                 sessionId: require(this.builder._sessionId, "sessionId"),

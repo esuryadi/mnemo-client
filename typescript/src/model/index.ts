@@ -90,5 +90,22 @@ export interface SettingsResponse {
     updatedAt?: string | null;
 }
 
+/** A short-lived token a browser can use for chat (result of {@code MnemoEmbedClient.Operation.MINT_TOKEN}). */
+export interface EmbedToken {
+    /** Sent by the browser as {@code X-Mnemo-Api-Token}; safe to hand to one visitor, never the API key. */
+    token: string;
+    /** ISO-8601 instant the token stops working at. */
+    expiresAt: string;
+    tenantId: string;
+    /** Every sessionId used with this token must start with this. */
+    sessionPrefix: string;
+}
+
+/** One server-sent event of a streaming call: its name ({@code message} when none was given) and its data. */
+export interface StreamEvent {
+    event: string;
+    data: string;
+}
+
 /** A parsed JSON object, as returned by the calls that have no typed model. */
 export type JsonObject = Record<string, unknown>;

@@ -46,6 +46,7 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
     private String apiKey;
     private String clientId;
     private String clientSecret;
+    private String embedToken;
     private String token;
     private long tokenExpiresAtNanos;
     private String baseUrl = DEFAULT_BASE_URL;
@@ -73,6 +74,16 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
         return self();
     }
 
+    /**
+     * Authenticates with a short-lived embed token minted by {@link MnemoEmbedClient}, sent as the
+     * {@code X-Mnemo-Api-Token} header. Meant for the browser-facing calls (init stream, chat stream, history); it
+     * cannot mint tokens. Set this, {@link #apiKey(String)} or {@link #clientCredentials(String, String)}: only one.
+     */
+    public B embedToken(String embedToken) {
+        this.embedToken = embedToken;
+        return self();
+    }
+
     /** Overrides the service endpoint, e.g. for a self-hosted or test deployment. */
     public B baseUrl(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -93,6 +104,10 @@ public abstract class MnemoClientBuilder<B extends MnemoClientBuilder<B>> {
 
     String apiKey() {
         return apiKey;
+    }
+
+    String embedToken() {
+        return embedToken;
     }
 
     String clientId() {

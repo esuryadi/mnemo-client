@@ -23,7 +23,14 @@
  * Since: Oct-2026
  */
 
+import { MnemoClientException } from "./exception/MnemoClientException.js";
+import { MnemoError } from "./exception/MnemoError.js";
 import type { MnemoClient } from "./MnemoClient.js";
+
+/** True when running in a browser page: there is a {@code window} or a {@code document}. */
+function runsInBrowser(): boolean {
+    return typeof window !== "undefined" || typeof (globalThis as { document?: unknown }).document !== "undefined";
+}
 
 /**
  * <b>MnemoClientBuilder</b> is the base of every client builder. It collects the credentials (an API key,
@@ -39,16 +46,20 @@ export abstract class MnemoClientBuilder {
     /** @internal */ _apiKey?: string;
     /** @internal */ _clientId?: string;
     /** @internal */ _clientSecret?: string;
-    /** @internal The cached client-credentials token and the time (ms) it expires at. */
-    _token?: { value: string; expiresAt: number };
-    /** @internal The token fetch in flight, so concurrent calls share one exchange. */
-    _tokenFetch?: Promise<string>;
+    /** @internal */ _embedToken?: string;
+    /** @internal */ _allowApiKeyInBrowser = false;
+    /**
+     * @internal The client-credentials token cache (the token and the time (ms) it expires at) and the token
+     * fetch in flight, so concurrent calls share one exchange. An object, so a copy of the builder shares it.
+     */
+    _oauth: { token?: { value: string; expiresAt: number }; fetch?: Promise<string> } = {};
     /** @internal */ _baseUrl: string = MnemoClientBuilder.DEFAULT_BASE_URL;
     /** @internal */ _tenantId?: string;
     /** @internal */ _timeoutMs: number = 120_000;
 
     /** Sets the MNEMO API token, sent as the {@code X-Mnemo-Api-Token} header. */
     apiKey(apiKey: string): this {
+        this.refuseInBrowser("apiKey");
         this._apiKey = apiKey;
         return this;
     }
@@ -60,8 +71,30 @@ export abstract class MnemoClientBuilder {
      * service rejects it. Set this or {@link apiKey}, not both.
      */
     clientCredentials(clientId: string, clientSecret: string): this {
+        this.refuseInBrowser("clientCredentials");
         this._clientId = clientId;
         this._clientSecret = clientSecret;
+        return this;
+    }
+
+    /**
+     * Authenticates with a short-lived embed token minted by {@code MnemoEmbedClient} on a server, sent as the
+     * {@code X-Mnemo-Api-Token} header. This is the only credential meant for a browser. Set this, or
+     * {@link apiKey} or {@link clientCredentials}, not more than one. Meant for the browser-facing calls (init stream,
+     * chat stream, history); the service refuses an embed token on anything else.
+     */
+    embedToken(embedToken: string): this {
+        this._embedToken = embedToken;
+        return this;
+    }
+
+    /**
+     * Lets {@link apiKey} and {@link clientCredentials} be used while running in a browser, where they would be
+     * visible to every visitor of the page. Call this <b>before</b> {@code apiKey()} or {@code clientCredentials()}.
+     * Leave it off: a page should hold an embed token only.
+     */
+    allowApiKeyInBrowser(allow: boolean): this {
+        this._allowApiKeyInBrowser = allow;
         return this;
     }
 
@@ -87,4 +120,12 @@ export abstract class MnemoClientBuilder {
     }
 
     abstract build(): MnemoClient;
+
+    private refuseInBrowser(what: string): void {
+        if (!this._allowApiKeyInBrowser && runsInBrowser()) {
+            throw new MnemoClientException(new MnemoError(MnemoError.Code.INVALID_REQUEST,
+                `${what} would be visible to every visitor of the page; use embedToken in a browser `
+                + "(or call allowApiKeyInBrowser(true) first if this is deliberate)"));
+        }
+    }
 }

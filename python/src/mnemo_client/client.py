@@ -59,6 +59,7 @@ class MnemoClientBuilder(ABC):
         self._api_key: Optional[str] = None
         self._client_id: Optional[str] = None
         self._client_secret: Optional[str] = None
+        self._embed_token: Optional[str] = None
         self._token_lock = threading.Lock()
         self._token: Optional[Tuple[str, float]] = None  # (access token, time.monotonic() it expires at)
         self._base_url: Optional[str] = MnemoClientBuilder.DEFAULT_BASE_URL
@@ -80,6 +81,16 @@ class MnemoClientBuilder(ABC):
         """
         self._client_id = client_id
         self._client_secret = client_secret
+        return self
+
+    def embed_token(self: B, embed_token: str) -> B:
+        """Authenticates with a short-lived embed token minted by :class:`MnemoEmbedClient`, sent as the
+        ``X-Mnemo-Api-Token`` header.
+
+        Meant for the browser-facing calls (init stream, chat stream, history); it cannot mint tokens. Set this,
+        :meth:`api_key` or :meth:`client_credentials`: only one.
+        """
+        self._embed_token = embed_token
         return self
 
     def base_url(self: B, base_url: str) -> B:

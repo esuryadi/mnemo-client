@@ -67,6 +67,13 @@ class MnemoChatClient(MnemoClient):
         session with HTTP 409. Waits for initialization to finish (it can take ten seconds or more) and returns a
         ``dict`` with ``ready``, ``message``, ``totalMs`` and the ``stages`` that ran; raises ``INIT_FAILED`` if
         initialization fails."""
+        CHAT_STREAM = "CHAT_STREAM"
+        """Chats in a session and streams the answer: ``POST mnemo/chat/stream`` with a JSON body; needs tenant_id,
+        session_id, message, optional role and answer_from_job_text. Returns a generator of
+        :class:`~mnemo_client.StreamEvent` (event name and data text) that yields each server-sent event as it
+        arrives and ends with the stream; an ``error`` event is yielded like any other. Parameters are checked when
+        ``execute()`` is called, the request is sent when iteration starts (so an HTTP failure is raised from the
+        first ``next()``). Close the generator to abandon a stream early. The session must be initialized first."""
         CHAT = "CHAT"
         """Sends ``message`` in ``session_id``; needs tenant_id, session_id, message. Returns ``ChatMessageResponse``."""
         LIST_SESSIONS = "LIST_SESSIONS"
@@ -108,6 +115,8 @@ class MnemoChatClient(MnemoClient):
             self._size: Optional[int] = None
             self._before: Optional[int] = None
             self._permanent = False
+            self._role: Optional[str] = None
+            self._answer_from_job_text: Optional[str] = None
 
         def operation(self, operation: MnemoChatClient.Operation) -> MnemoChatClient.Builder:
             self._operation = operation
@@ -157,6 +166,16 @@ class MnemoChatClient(MnemoClient):
         def permanent(self, permanent: bool) -> MnemoChatClient.Builder:
             """For ``CLOSE_SESSION``: delete the session permanently instead of just closing it."""
             self._permanent = permanent
+            return self
+
+        def role(self, role: str) -> MnemoChatClient.Builder:
+            """The role of the sender, an optional field of ``CHAT_STREAM``."""
+            self._role = role
+            return self
+
+        def answer_from_job_text(self, job_id: str) -> MnemoChatClient.Builder:
+            """The id of an ingest job whose extracted text the answer is based on (``CHAT_STREAM``)."""
+            self._answer_from_job_text = job_id
             return self
 
         def build(self) -> MnemoChatClient:

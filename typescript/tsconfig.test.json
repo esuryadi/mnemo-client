@@ -3,7 +3,19 @@
   "compilerOptions": {
     "noEmit": true,
     "rootDir": ".",
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@panaxon/mnemo-client": [
+        "./src/index.ts"
+      ]
+    }
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test",
+    "examples",
+    "scripts/*.d.mts"
+  ]
 }

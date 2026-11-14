@@ -24,6 +24,7 @@
   },
   "files": [
     "dist",
+    "embed",
     "LICENSE"
   ],
   "engines": {
@@ -33,7 +34,8 @@
     "access": "public"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/build-embed.mjs",
+    "build:embed": "node scripts/build-embed.mjs",
     "typecheck": "tsc -p tsconfig.test.json",
     "test": "vitest run",
     "prepublishOnly": "npm run build && npm test && npm run typecheck"
@@ -46,7 +48,11 @@
     "llm"
   ],
   "devDependencies": {
+    "@types/express": "5.0.6",
     "@types/node": "^26.6.6",
+    "esbuild": "0.28.2",
+    "express": "5.3.0",
+    "happy-dom": "21.0.4",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   }

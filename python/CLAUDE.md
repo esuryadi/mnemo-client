@@ -47,6 +47,10 @@ differs for Python.
 - The README is the project page on pypi.org, where relative links outside `python/` break: link the rest of the
   repo with absolute GitHub URLs.
 
+## Embed chat
+
+`embed.py` / `_embed_impl.py` (`MnemoEmbedClient`), `embed_helpers.py` (`EmbedSnippet`, `EmbedTokenEndpoint`, `bundled_script()`), `CHAT_STREAM` in `_chat_impl.py` (a lazy generator: parameters are validated at `execute()`, an HTTP error is raised on the first `next()`). The component file `src/mnemo_client/embed/mnemo-chat.js` is a copy of `../typescript/embed/mnemo-chat.js` (package data in `pyproject.toml`); `tests/test_embed_asset.py` compares hashes. Examples in `examples/` import without Flask or Django installed. Timestamps with up to 9 fractional digits are normalised in `model._instant` for Python < 3.11.
+
 ## Release (PyPI, `mnemo-client`)
 
 Released by hand from GitHub: Actions -> "Publish Python client" -> Run workflow (`dry_run`

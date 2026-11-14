@@ -43,11 +43,16 @@ else
 fi
 
 PKG="node_modules/$NAME"
-for f in package.json README.md LICENSE dist/index.js dist/index.d.ts; do
+for f in package.json README.md LICENSE dist/index.js dist/index.d.ts embed/mnemo-chat.js; do
   [ -f "$PKG/$f" ] && ok "$f" || bad "$f is missing from the package"
 done
-[ -z "$(ls "$PKG" | grep -vE '^(dist|package\.json|README\.md|LICENSE)$')" ] && ok "nothing else is shipped" \
+[ -z "$(ls "$PKG" | grep -vE '^(dist|embed|package\.json|README\.md|LICENSE)$')" ] && ok "nothing else is shipped" \
   || bad "unexpected files in the package: $(ls "$PKG" | tr '\n' ' ')"
+
+GOT="$(shasum -a 256 "$PKG/embed/mnemo-chat.js" 2>/dev/null | cut -d' ' -f1)"
+if [ -n "${EXPECTED_EMBED_SHA256:-}" ]; then
+  [ "$GOT" = "$EXPECTED_EMBED_SHA256" ] && ok "embed/mnemo-chat.js has the expected hash" || bad "embed/mnemo-chat.js hash is $GOT, expected $EXPECTED_EMBED_SHA256"
+else echo "  (set EXPECTED_EMBED_SHA256 to check the bundled component's hash; it is $GOT)"; fi
 
 echo "== Registry signature and provenance"
 SIG="$(npm audit signatures 2>&1)"

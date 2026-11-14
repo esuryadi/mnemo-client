@@ -37,6 +37,15 @@ for f in "$ARTIFACT-$VERSION.pom" "$ARTIFACT-$VERSION.jar" "$ARTIFACT-$VERSION-s
   [ -n "${want:-}" ] && [ "${want%% *}" = "$got" ] && ok "$f sha1 matches" || bad "$f sha1 does not match"
 done
 
+echo "== The bundled <mnemo-chat> component is in the jar"
+if unzip -p "$WORK/$ARTIFACT-$VERSION.jar" embed/mnemo-chat.js > "$WORK/mnemo-chat.js" 2>/dev/null && [ -s "$WORK/mnemo-chat.js" ]; then
+  ok "embed/mnemo-chat.js is in the jar"
+  GOT="$(shasum -a 256 "$WORK/mnemo-chat.js" | cut -d' ' -f1)"
+  if [ -n "${EXPECTED_EMBED_SHA256:-}" ]; then
+    [ "$GOT" = "$EXPECTED_EMBED_SHA256" ] && ok "embed/mnemo-chat.js has the expected hash" || bad "embed/mnemo-chat.js hash is $GOT, expected $EXPECTED_EMBED_SHA256"
+  else echo "  (set EXPECTED_EMBED_SHA256 to check the hash; it is $GOT)"; fi
+else bad "embed/mnemo-chat.js is missing from the jar"; fi
+
 echo "== GPG signatures verify against the key on a public keyserver"
 export GNUPGHOME="$WORK/gnupg"; mkdir -m 700 "$GNUPGHOME"
 SIGPKT=$(gpg --list-packets "$WORK/$ARTIFACT-$VERSION.jar.asc" 2>/dev/null)

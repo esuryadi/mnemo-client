@@ -26,8 +26,11 @@
 import os
 import sys
 
-from mnemo_client import (MnemoChatClient, MnemoClient, MnemoClientException, MnemoError, MnemoNetworkClient,
-                          MnemoRAGClient, MnemoSettingsClient)
+import hashlib
+
+from mnemo_client import (EmbedSnippet, MnemoChatClient, MnemoClient, MnemoClientException, MnemoEmbedClient, MnemoError,
+                          MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient, __version__)
+from mnemo_client.embed_helpers import bundled_script
 
 failures = 0
 
@@ -77,6 +80,21 @@ try:
 except MnemoClientException as e:
     check(f"a bad key is rejected as 401 ({e.http_status})",
           e.http_status == 401 and e.error.code is MnemoError.Code.UNAUTHORIZED)
+
+# embed chat (1.2.0): the embed client refuses a bad origin locally, the snippet points at this exact version,
+# and the bundled component is the expected file (EXPECTED_EMBED_SHA256 is set by the release checklist)
+try:
+    MnemoEmbedClient.Builder().api_key("k").tenant_id("t").allowed_origin("*").operation(MnemoEmbedClient.Operation.MINT_TOKEN).build().execute()
+    check("a wildcard embed origin is refused locally", False)
+except MnemoClientException as e:
+    check("a wildcard embed origin is refused locally", e.error.code is MnemoError.Code.INVALID_REQUEST)
+html = EmbedSnippet.render(EmbedSnippet.Options(token_url="/t"))
+check("the embed snippet points at this version", f"@panaxon/mnemo-client@{__version__}/embed/mnemo-chat.js" in html)
+digest = hashlib.sha256(bundled_script()).hexdigest()
+expected = os.environ.get("EXPECTED_EMBED_SHA256")
+check(f"the bundled mnemo-chat.js is present ({digest[:12]})", len(bundled_script()) > 1000)
+if expected:
+    check("the bundled mnemo-chat.js has the expected hash", digest == expected)
 
 print("SMOKE TEST PASSED" if failures == 0 else f"SMOKE TEST FAILED: {failures} check(s)")
 sys.exit(0 if failures == 0 else 1)

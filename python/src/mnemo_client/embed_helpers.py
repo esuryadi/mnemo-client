@@ -121,3 +121,12 @@ class EmbedTokenEndpoint:
         return json.dumps({"token": token.token, "expiresAt": expires_at, "tenantId": token.tenant_id, "sessionPrefix": token.session_prefix},
                           separators=(",", ":")).replace("<", "\\u003c").replace(">", "\\u003e") \
             .replace("&", "\\u0026")
+
+
+def bundled_script() -> bytes:
+    """The bytes of the ``<mnemo-chat>`` web component, shipped in this package as ``mnemo_client/embed/mnemo-chat.js``
+    (the same file as the npm package's ``embed/mnemo-chat.js``; a test checks the hashes match). Serve it from your
+    own server instead of a CDN when you prefer, with content type ``text/javascript``, and point
+    ``EmbedSnippet.Options(script_url=...)`` at that URL."""
+    from importlib import resources
+    return resources.files("mnemo_client").joinpath("embed", "mnemo-chat.js").read_bytes()

@@ -29,6 +29,7 @@ ignored and missing ones take their default, so a newer service never breaks an 
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -41,6 +42,8 @@ def _instant(value: Any) -> Optional[datetime]:
     text = str(value)
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
+    # fromisoformat (before 3.11) takes only 3 or 6 fractional digits; the service sends up to 9 (nanoseconds).
+    text = re.sub(r"\.(\d+)", lambda m: "." + m.group(1)[:6].ljust(6, "0"), text, count=1)
     return datetime.fromisoformat(text)
 
 

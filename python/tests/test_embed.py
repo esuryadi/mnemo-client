@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import json
+import unittest
 from datetime import datetime, timezone
 
 from mnemo_client import EmbedToken, MnemoClientFactory, MnemoEmbedClient, MnemoError
@@ -113,3 +114,12 @@ class MnemoEmbedClientTest(FakeServerTestCase):
 
     def test_factory_builds_the_client(self) -> None:
         self.assertIsInstance(MnemoClientFactory.create(self.builder()), MnemoEmbedClient)
+
+
+class InstantParsingTest(unittest.TestCase):
+    def test_the_service_may_send_nanoseconds_and_python_before_3_11_must_still_parse_them(self) -> None:
+        from mnemo_client.model import _instant
+        for text in ("2026-11-14T17:42:22.847388670Z", "2026-11-14T17:42:22.8Z", "2026-11-14T17:42:22Z", "2026-11-14T17:42:22.123456+00:00"):
+            self.assertEqual(2026, _instant(text).year, text)
+        self.assertEqual(847388, _instant("2026-11-14T17:42:22.847388670Z").microsecond)
+        self.assertEqual(800000, _instant("2026-11-14T17:42:22.8Z").microsecond)

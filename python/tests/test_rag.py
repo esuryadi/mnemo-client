@@ -57,6 +57,15 @@ class MnemoRAGClientTest(FakeServerTestCase):
         self.assertEqual("tok-1", req.token)
         self.assertEqual({"query": "Refund window?", "additionalContext": ["annual plans"]}, json.loads(req.body))
 
+    def test_a_not_found_carries_its_reason_and_a_found_answer_has_none(self) -> None:
+        self.server.reply(200, '{"answer":"not found","found":false,"retrievalTier":"not_found","reason":"OUT_OF_SCOPE"}')
+        r = self.builder().rag_id("kb").query("q").build().execute()
+        self.assertFalse(r.found)
+        self.assertEqual("OUT_OF_SCOPE", r.reason)
+
+        self.server.reply(200, '{"answer":"x","found":true}')
+        self.assertIsNone(self.builder().rag_id("kb").query("q").build().execute().reason)
+
     def test_additional_context_is_omitted_when_not_set(self) -> None:
         self.server.reply(200, '{"answer":"x","found":false}')
         r = self.builder().rag_id("kb").query("q").build().execute()

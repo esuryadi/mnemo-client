@@ -133,6 +133,9 @@ class RagQueryResponse:
     retrieval_tier: Optional[str] = None
     subjects_used: List[str] = field(default_factory=list)
     token_usage: Optional[TokenUsage] = None
+    # Only on a not-found, when the server knows why: OUT_OF_SCOPE, NOT_IN_MEMORY, AMBIGUOUS_ENTITY, PARTIAL_MATCH,
+    # INDEX_NOT_READY, UNVERIFIED_ANSWER (STALE is reserved and never sent). A string, so a later code does not break an older client.
+    reason: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> RagQueryResponse:
@@ -140,7 +143,7 @@ class RagQueryResponse:
                    authority=data.get("authority"), confidence=data.get("confidence"),
                    last_updated=_instant(data.get("lastUpdated")), retrieval_tier=data.get("retrievalTier"),
                    subjects_used=list(data.get("subjectsUsed") or []),
-                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")))
+                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")), reason=data.get("reason"))
 
 
 @dataclass(frozen=True)

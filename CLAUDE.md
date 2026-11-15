@@ -52,6 +52,30 @@ Described in Java terms (`switch`, package-private, records); `typescript/CLAUDE
 5. Response types: typed records in `com.panaxon.ai.model` for the core calls (chat, RAG, settings); other calls
    return `Map` / `List<Map>` / `Object` parsed JSON. Document the return type on each `Operation` constant.
 
+## Embed chat (1.2.0)
+
+`<mnemo-chat>` (a Web Component) lets a customer put a chat in their own page. The backend side is in the `mnemo` repo
+(CLAUDE.md, "Embed tokens"); this repo ships the client half in all three languages, in parity:
+
+- **`MnemoEmbedClient`** (`MINT_TOKEN`: `POST mnemo/embed/token`, server side only, with an ADMIN API key) and
+  `MnemoChatClient.CHAT_STREAM` (`POST mnemo/chat/stream`, events as they arrive). `embedToken(...)` on every builder is
+  the third credential, mutually exclusive with `apiKey` and `clientCredentials`, sent as `X-Mnemo-Api-Token`.
+- **Server helpers**: `EmbedSnippet.render` (escapes every attribute) and `EmbedTokenEndpoint.handle` (returns exactly
+  `token`, `expiresAt`, `tenantId`, `sessionPrefix`, never the API key). Runnable examples live under `typescript/examples`,
+  `python/examples` and `java/src/test/.../examples`, each exercised by a test, and the READMEs quote them verbatim
+  (`scripts/check-parity.py` checks that).
+- **The component** is TypeScript in `typescript/src/embed/`, bundled by `npm run build:embed` (esbuild, pinned) to
+  `typescript/embed/mnemo-chat.js` (a minified IIFE: the snippet loads it with a plain `<script async>`). **After any change under `src/embed`
+  rebuild it and copy it to `java/src/main/resources/embed/` and `python/src/mnemo_client/embed/`**: tests in each language
+  compare the SHA-256 of the copies with the TypeScript build, and `scripts/check-parity.py` does too. Budget: 40 KB gzipped (11 KB now).
+- **`scripts/check-parity.py` is the release gate for parity**: one version in `pom.xml`, `package.json`, `__version__`,
+  `MnemoClientVersion.java` and `src/version.ts`; one `mnemo-chat.js`; the same embed API paths asserted by all three test suites; README samples verbatim.
+  Bumping the version means all five places (the snippet's CDN URL is built from it).
+- A browser must never hold an API key: in a browser TypeScript refuses `apiKey` and `clientCredentials` unless `allowApiKeyInBrowser(true)`.
+- Service timestamps may carry nanoseconds: Python parses them (before 3.11 `fromisoformat` takes 3 or 6 digits only).
+- Release checklist: all three suites, `python3 scripts/check-parity.py`, each publish workflow with `dry_run` first, then real runs only after the backend is live and its canary green; afterwards run each `smoke-test/verify-*` with
+  `EXPECTED_EMBED_SHA256=<hash of typescript/embed/mnemo-chat.js>` so the registry artifact is checked against the file you built.
+
 ## Conventions
 
 - Every source file starts with the Apache 2.0 header — copy it from `MnemoClient.java` / `MnemoClient.ts` /

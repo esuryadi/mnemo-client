@@ -54,6 +54,11 @@ if "$WORK/venv/bin/pip" install -q --no-cache-dir --disable-pip-version-check ${
   ok "pip installed $NAME==$VERSION"
   SITE="$("$WORK/venv/bin/python" -I -c 'import mnemo_client, os; print(os.path.dirname(mnemo_client.__file__))')"
   [ -f "$SITE/py.typed" ] && ok "py.typed is installed" || bad "py.typed is missing"
+  [ -s "$SITE/embed/mnemo-chat.js" ] && ok "embed/mnemo-chat.js is installed" || bad "embed/mnemo-chat.js is missing"
+  GOT="$(shasum -a 256 "$SITE/embed/mnemo-chat.js" 2>/dev/null | cut -d' ' -f1)"
+  if [ -n "${EXPECTED_EMBED_SHA256:-}" ]; then
+    [ "$GOT" = "$EXPECTED_EMBED_SHA256" ] && ok "embed/mnemo-chat.js has the expected hash" || bad "embed/mnemo-chat.js hash is $GOT, expected $EXPECTED_EMBED_SHA256"
+  else echo "  (set EXPECTED_EMBED_SHA256 to check the hash; it is $GOT)"; fi
   GOT="$("$WORK/venv/bin/python" -I -c 'import mnemo_client; print(mnemo_client.__version__)')"
   [ "$GOT" = "$VERSION" ] && ok "__version__ is $GOT" || bad "__version__ is $GOT, expected $VERSION"
   (cd "$WORK" && "$WORK/venv/bin/python" -I "$OLDPWD/smoke_test.py"); [ $? = 0 ] && ok "smoke_test.py ran" || bad "smoke_test.py failed"

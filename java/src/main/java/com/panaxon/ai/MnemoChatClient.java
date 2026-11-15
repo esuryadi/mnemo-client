@@ -25,6 +25,10 @@
 
 package com.panaxon.ai;
 
+import com.panaxon.ai.model.StreamEvent;
+
+import java.util.function.Consumer;
+
 /**
  * <b>MnemoChatClient</b> is an interface that defines the contract for a chat client within the MNEMO system.
  * Implementations of this interface should provide methods for managing conversational interactions,
@@ -88,6 +92,14 @@ public interface MnemoChatClient extends MnemoClient {
          * {@code totalMs} and the {@code stages} that ran; throws if initialization fails.
          */
         INIT_SESSION,
+        /**
+         * Chats in a session and streams the answer: {@code POST mnemo/chat/stream} with a JSON body; needs tenantId,
+         * sessionId, message and {@link Builder#onEvent(Consumer)}, optional role and answerFromJobText. Each
+         * server-sent event is handed to the callback as it arrives (an {@link com.panaxon.ai.model.StreamEvent} with
+         * the event name and its data text, an {@code error} event is passed on like any other) and
+         * {@code execute()} returns {@code null} when the stream ends. The session must be initialized first.
+         */
+        CHAT_STREAM,
         /** Sends {@code message} in {@code sessionId}; needs tenantId, sessionId, message. Returns {@link com.panaxon.ai.model.ChatMessageResponse}. */
         CHAT,
         /** Lists sessions; needs tenantId, optional query/page/size. The query must equal a session's name exactly; it is not a partial-text search. Returns {@code Map<String, Object>} (a page). */
@@ -127,6 +139,9 @@ public interface MnemoChatClient extends MnemoClient {
         private Integer size;
         private Long before;
         private boolean permanent;
+        private String role;
+        private String answerFromJobText;
+        private Consumer<StreamEvent> onEvent;
 
         @Override
         protected Builder self() {
@@ -194,6 +209,27 @@ public interface MnemoChatClient extends MnemoClient {
             return this;
         }
 
+        /** Sets the role of the sender, an optional field of {@link Operation#CHAT_STREAM}. */
+        public Builder role(String role) {
+            this.role = role;
+            return this;
+        }
+
+        /** Sets the id of an ingest job whose extracted text the answer is based on ({@link Operation#CHAT_STREAM}). */
+        public Builder answerFromJobText(String jobId) {
+            this.answerFromJobText = jobId;
+            return this;
+        }
+
+        /** Sets the callback that receives each event of a {@link Operation#CHAT_STREAM}, on the calling thread. */
+        public Builder onEvent(Consumer<StreamEvent> onEvent) {
+            this.onEvent = onEvent;
+            return this;
+        }
+
+        String role() { return role; }
+        String answerFromJobText() { return answerFromJobText; }
+        Consumer<StreamEvent> onEvent() { return onEvent; }
         Operation operation() { return operation; }
         String sessionId() { return sessionId; }
         String message() { return message; }

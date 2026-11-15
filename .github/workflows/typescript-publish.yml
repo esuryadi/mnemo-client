@@ -76,7 +76,7 @@ jobs:
           npm pack --dry-run --json > pack.json
           node -e '
             const files = require("./pack.json")[0].files.map(f => f.path);
-            const need = ["LICENSE", "README.md", "package.json", "dist/index.js", "dist/index.d.ts"];
+            const need = ["LICENSE", "README.md", "package.json", "dist/index.js", "dist/index.d.ts", "embed/mnemo-chat.js"];
             const missing = need.filter(f => !files.includes(f));
             const stray = files.filter(f => !need.includes(f) && !f.startsWith("dist/"));
             console.log(files.length + " files");
@@ -89,6 +89,13 @@ jobs:
         with:
           name: typescript-dist
           path: typescript/dist/
+          if-no-files-found: error
+
+      # the browser component, built by `npm run build` above and shipped in the package as embed/mnemo-chat.js
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: typescript-embed
+          path: typescript/embed/
           if-no-files-found: error
 
   # Installs no dependencies: it publishes the dist built and tested above, and is the only job with id-token.
@@ -115,6 +122,11 @@ jobs:
         with:
           name: typescript-dist
           path: typescript/dist/
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: typescript-embed
+          path: typescript/embed/
 
       - name: Use an npm that supports trusted publishing (11.5.1+)
         run: npm install -g npm@11.21.1

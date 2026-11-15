@@ -23,10 +23,40 @@
  * Since: Oct-2026
  */
 
-import { createServer, type Server } from "node:http";
+import { createServer, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { expect } from "vitest";
 import { MnemoClientException } from "../src/index.js";
+
+/** A reply the test writes to by hand, so it can show that the client hands over events before the stream ends. */
+export class LiveStream {
+    private response: ServerResponse | undefined;
+    private readonly opened: Promise<void>;
+    private onOpen!: () => void;
+
+    constructor() {
+        this.opened = new Promise((resolve) => (this.onOpen = resolve));
+    }
+
+    /** @internal */
+    attach(res: ServerResponse): void {
+        this.response = res;
+        res.statusCode = 200;
+        res.setHeader("Content-Type", "text/event-stream");
+        res.flushHeaders();
+        this.onOpen();
+    }
+
+    async write(text: string): Promise<void> {
+        await this.opened;
+        await new Promise<void>((resolve) => this.response!.write(text, () => resolve()));
+    }
+
+    async end(): Promise<void> {
+        await this.opened;
+        this.response!.end();
+    }
+}
 
 export interface Received {
     method: string;
@@ -53,6 +83,7 @@ export class FakeMnemoServer {
     private location: string | undefined;
     private readonly routes = new Map<string, { status: number; body: string }[]>();
     private readonly server: Server;
+    private live: LiveStream | undefined;
 
     private constructor() {
         this.server = createServer((req, res) => {
@@ -72,6 +103,12 @@ export class FakeMnemoServer {
                     authorization: req.headers["authorization"],
                     body: Buffer.concat(chunks).toString("utf8"),
                 });
+                if (this.live !== undefined) {
+                    const live = this.live;
+                    this.live = undefined;
+                    live.attach(res);
+                    return;
+                }
                 res.setHeader("Content-Type", this.contentType);
                 const queued = this.routes.get(rawPath);
                 const reply = queued === undefined ? { status: this.status, body: this.replyBody }
@@ -109,6 +146,12 @@ export class FakeMnemoServer {
     replyOn(path: string, ...replies: [number, string][]): this {
         this.routes.set(path, replies.map(([status, body]) => ({ status, body })));
         return this;
+    }
+
+    /** Answers the next request with 200 and an event stream that the test writes to and ends itself. */
+    streamNext(): LiveStream {
+        this.live = new LiveStream();
+        return this.live;
     }
 
     url(): string {

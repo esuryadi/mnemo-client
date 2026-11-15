@@ -51,6 +51,10 @@ import { MnemoChatClientImpl } from "./MnemoChatClientImpl.js";
  *     .build();
  * const reply = await client.execute<ChatMessageResponse>();
  * console.log(reply.message);
+ *
+ * // the same call, streamed
+ * const events = await chatStream.execute<AsyncIterable<StreamEvent>>();
+ * for await (const { event, data } of events) { if (event === "message") process.stdout.write(data); }
  */
 export interface MnemoChatClient extends MnemoClient {}
 
@@ -67,6 +71,14 @@ export namespace MnemoChatClient {
         INIT_SESSION = "INIT_SESSION",
         /** Sends {@code message} in {@code sessionId}; needs tenantId, sessionId, message. Resolves with {@code ChatMessageResponse}. */
         CHAT = "CHAT",
+        /**
+         * Sends {@code message} in {@code sessionId} and streams the answer; needs tenantId, sessionId, message
+         * (the session must be initialized first). Sent as {@code POST mnemo/chat/stream}. Resolves, once the
+         * service has accepted the request, with an {@code AsyncIterable<StreamEvent>}: each {@code message} event
+         * carries a piece of the answer, a {@code done} event ends the turn and an {@code error} event carries a
+         * JSON {@code {"error": "..."}}. The timeout covers the whole stream. Break out of the loop to cancel.
+         */
+        CHAT_STREAM = "CHAT_STREAM",
         /** Lists sessions; needs tenantId, optional query/page/size. The query must equal a session's name exactly; it is not a partial-text search. Resolves with {@code JsonObject} (a page). */
         LIST_SESSIONS = "LIST_SESSIONS",
         /** One page of a session's history, newest first; needs tenantId, sessionId, optional before/size. Resolves with {@code JsonObject}. */

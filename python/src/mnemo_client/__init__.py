@@ -29,30 +29,38 @@ Every client works the same way: a builder collects the parameters, ``build()`` 
 
 from .chat import MnemoChatClient
 from .client import MnemoClient, MnemoClientBuilder
+from .embed import MnemoEmbedClient
+from .embed_helpers import EmbedSnippet, EmbedTokenEndpoint
 from .exception import MnemoClientException, MnemoError
 from .factory import MnemoClientFactory
 from .model import (
     Attachment,
     ChatMessageResponse,
+    EmbedToken,
     RagQueryResponse,
     ResponseTiming,
     SettingsResponse,
+    StreamEvent,
     TokenUsage,
 )
 from .network import MnemoNetworkClient
 from .rag import MnemoRAGClient
 from .settings import MnemoSettingsClient
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "Attachment",
     "ChatMessageResponse",
+    "EmbedSnippet",
+    "EmbedToken",
+    "EmbedTokenEndpoint",
     "MnemoChatClient",
     "MnemoClient",
     "MnemoClientBuilder",
     "MnemoClientException",
     "MnemoClientFactory",
+    "MnemoEmbedClient",
     "MnemoError",
     "MnemoNetworkClient",
     "MnemoRAGClient",
@@ -60,5 +68,6 @@ __all__ = [
     "RagQueryResponse",
     "ResponseTiming",
     "SettingsResponse",
+    "StreamEvent",
     "TokenUsage",
 ]

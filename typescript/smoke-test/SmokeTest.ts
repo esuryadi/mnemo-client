@@ -28,7 +28,9 @@ import {
     type JsonObject,
     type MnemoClient,
     MnemoChatClient,
+    EmbedSnippet,
     MnemoClientException,
+    MnemoEmbedClient,
     MnemoError,
     MnemoNetworkClient,
     MnemoRAGClient,
@@ -88,6 +90,17 @@ try {
     check(`a bad key is rejected as 401 (${status})`,
         e instanceof MnemoClientException && e.httpStatus === 401 && e.error.code === MnemoError.Code.UNAUTHORIZED);
 }
+
+// embed chat (1.2.0): the embed client refuses a bad origin locally, and the snippet points at this exact version
+try {
+    await new MnemoEmbedClient.Builder().apiKey("k").tenantId("t").allowedOrigin("*")
+        .operation(MnemoEmbedClient.Operation.MINT_TOKEN).build().execute();
+    check("a wildcard embed origin is refused locally", false);
+} catch (e) {
+    check("a wildcard embed origin is refused locally",
+        e instanceof MnemoClientException && e.error.code === MnemoError.Code.INVALID_REQUEST);
+}
+check("the embed snippet renders the component", EmbedSnippet.render({ tokenUrl: "/t" }).includes("embed/mnemo-chat.js"));
 
 console.log(failures === 0 ? "SMOKE TEST PASSED" : `SMOKE TEST FAILED: ${failures} check(s)`);
 process.exit(failures === 0 ? 0 : 1);

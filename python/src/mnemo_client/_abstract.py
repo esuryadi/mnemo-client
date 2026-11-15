@@ -32,7 +32,7 @@ import re
 import time
 import urllib.error
 import urllib.request
-from typing import Any, Callable, Dict, List, NamedTuple, Optional, TypeVar
+from typing import Any, Callable, Dict, Iterator, List, NamedTuple, Optional, Tuple, TypeVar
 from urllib.parse import quote, urlencode, urlsplit
 
 from .client import MnemoClient, MnemoClientBuilder
@@ -94,11 +94,16 @@ class AbstractMnemoClient(MnemoClient):
         """Runs ``call`` with the service base URL after validating the builder settings."""
         settings = self._settings
         has_client = not (_is_blank(settings._client_id) and _is_blank(settings._client_secret))
+        has_embed = not _is_blank(settings._embed_token)
         if has_client and not _is_blank(settings._api_key):
             raise _invalid("set either api_key or client_credentials, not both")
+        if has_embed and not _is_blank(settings._api_key):
+            raise _invalid("set either api_key or embed_token, not both")
+        if has_embed and has_client:
+            raise _invalid("set either client_credentials or embed_token, not both")
         if has_client and (_is_blank(settings._client_id) or _is_blank(settings._client_secret)):
             raise _invalid("client_credentials needs both a client id and a client secret")
-        if not has_client and _is_blank(settings._api_key):
+        if not has_client and not has_embed and _is_blank(settings._api_key):
             raise MnemoClientException(MnemoError(MnemoError.Code.MISSING_API_KEY))
         if _is_blank(settings._base_url):
             raise _invalid("base_url is required")
@@ -133,36 +138,69 @@ class AbstractMnemoClient(MnemoClient):
         return parse_events(self._request(method, url, "text/event-stream", body))
 
     def _request(self, method: str, url: str, accept: str, body: Optional[Dict[str, Any]]) -> str:
+        return self._with_token(lambda bearer: self._open(self._build_request(method, url, accept, body, bearer)))
+
+    def _with_token(self, call: Callable[[Optional[str]], T]) -> T:
+        """Runs ``call`` with the bearer token of the OAuth client (``None`` for an API key or embed token), replacing
+        a rejected token once."""
         if self._uses_client_credentials():
             try:
-                return self._perform(method, url, accept, body, self._access_token(False))
+                return call(self._access_token(False))
             except MnemoClientException as e:
                 if e.http_status != 401:
                     raise
             # the cached token was revoked or its client was rotated: fetch a new one and try once more
-            return self._perform(method, url, accept, body, self._access_token(True))
-        return self._perform(method, url, accept, body, None)
+            return call(self._access_token(True))
+        return call(None)
 
-    def _perform(self, method: str, url: str, accept: str, body: Optional[Dict[str, Any]],
-                 bearer: Optional[str]) -> str:
+    def _stream_events(self, method: str, url: str, body: Dict[str, Any]) -> Iterator[SseEvent]:
+        """Sends one request that answers with a server-sent event stream and yields each event as it arrives.
+
+        The request is sent when iteration starts, so an HTTP failure is raised from the first ``next()``.
+        """
+        response = self._with_token(
+            lambda bearer: self._open_response(self._build_request(method, url, "text/event-stream", body, bearer)))
+        parser = SseParser()
+        try:
+            for raw in response:
+                event = parser.line(raw.decode("utf-8", errors="replace").rstrip("\r\n"))
+                if event is not None:
+                    yield event
+            event = parser.finish()
+            if event is not None:
+                yield event
+        except (http.client.HTTPException, OSError) as e:
+            raise MnemoClientException(MnemoError(MnemoError.Code.IO_ERROR)) from e
+        finally:
+            response.close()
+
+    def _build_request(self, method: str, url: str, accept: str, body: Optional[Dict[str, Any]],
+                       bearer: Optional[str]) -> urllib.request.Request:
         headers = {"Accept": accept}
         if bearer is None:
-            headers[TOKEN_HEADER] = str(self._settings._api_key)
+            headers[TOKEN_HEADER] = str(self._settings._api_key if _is_blank(self._settings._embed_token)
+                                        else self._settings._embed_token)
         else:
             headers["Authorization"] = "Bearer " + bearer
         data = None
         if body is not None:
             headers["Content-Type"] = "application/json"
             data = json.dumps(body).encode("utf-8")
-        return self._open(urllib.request.Request(url, data=data, headers=headers, method=method))
+        return urllib.request.Request(url, data=data, headers=headers, method=method)
 
     def _open(self, request: urllib.request.Request) -> str:
-        timeout = self._settings._timeout or None
         try:
-            with _OPENER.open(request, timeout=timeout) as response:
+            with self._open_response(request) as response:
                 if response.status == 204:
                     return ""
                 return response.read().decode("utf-8")
+        except (http.client.HTTPException, OSError) as e:
+            raise MnemoClientException(MnemoError(MnemoError.Code.IO_ERROR)) from e
+
+    def _open_response(self, request: urllib.request.Request) -> Any:
+        timeout = self._settings._timeout or None
+        try:
+            return _OPENER.open(request, timeout=timeout)
         except urllib.error.HTTPError as e:
             if 300 <= e.code < 400:
                 e.close()
@@ -209,27 +247,46 @@ class AbstractMnemoClient(MnemoClient):
 
 def parse_events(text: str) -> List[SseEvent]:
     events: List[SseEvent] = []
-    name: Optional[str] = None
-    data: List[str] = []
-    is_open = False
+    parser = SseParser()
     for line in re.split(r"\r?\n", text):
+        event = parser.line(line)
+        if event is not None:
+            events.append(event)
+    event = parser.finish()
+    if event is not None:
+        events.append(event)
+    return events
+
+
+class SseParser:
+    """Builds server-sent events from lines, one at a time, so a stream can be handed on as it arrives."""
+
+    def __init__(self) -> None:
+        self._name: Optional[str] = None
+        self._data: List[str] = []
+        self._open = False
+
+    def line(self, line: str) -> Optional[SseEvent]:
+        """Takes one line (without its line ending); returns the event a blank line completes, if any."""
         if not line:
-            if is_open:
-                events.append(SseEvent(name or "message", "\n".join(data)))
-            name, data, is_open = None, [], False
-        elif not line.startswith(":"):
+            return self.finish()
+        if not line.startswith(":"):
             field, colon, value = line.partition(":")
             if colon and value.startswith(" "):
                 value = value[1:]
             if field == "event":
-                name = value
-                is_open = True
+                self._name = value
+                self._open = True
             elif field == "data":
-                data.append(value)
-                is_open = True
-    if is_open:
-        events.append(SseEvent(name or "message", "\n".join(data)))
-    return events
+                self._data.append(value)
+                self._open = True
+        return None
+
+    def finish(self) -> Optional[SseEvent]:
+        """Ends the event being built, if any (a blank line, or the end of the stream)."""
+        event = SseEvent(self._name or "message", "\n".join(self._data)) if self._open else None
+        self._name, self._data, self._open = None, [], False
+        return event
 
 
 def _parse_json(text: str) -> Any:

@@ -60,6 +60,24 @@ public class SmokeTest {
                     e.getHttpStatus() == 401 && e.getError().code() == MnemoError.Code.UNAUTHORIZED);
         }
 
+        // embed chat (1.2.0): the embed client refuses a bad origin locally, the snippet points at this version, and the
+        // bundled component is in the jar
+        try {
+            new com.panaxon.ai.MnemoEmbedClient.Builder().apiKey("k").tenantId("t").allowedOrigin("*")
+                    .operation(com.panaxon.ai.MnemoEmbedClient.Operation.MINT_TOKEN).build().execute();
+            check("a wildcard embed origin is refused locally", false);
+        } catch (MnemoClientException e) {
+            check("a wildcard embed origin is refused locally", e.getError().code() == MnemoError.Code.INVALID_REQUEST);
+        }
+        try {
+            String html = com.panaxon.ai.EmbedSnippet.render(new com.panaxon.ai.EmbedSnippet.Options("/t"));
+            check("the embed snippet points at this version",
+                    html.contains("@panaxon/mnemo-client@" + com.panaxon.ai.MnemoClientVersion.VERSION + "/embed/mnemo-chat.js"));
+            check("the bundled mnemo-chat.js is present", com.panaxon.ai.EmbedAsset.bundledScript().length > 1000);
+        } catch (Exception e) {
+            check("the embed snippet and bundled script (" + e + ")", false);
+        }
+
         System.out.println(failures == 0 ? "SMOKE TEST PASSED" : "SMOKE TEST FAILED: " + failures + " check(s)");
         System.exit(failures == 0 ? 0 : 1);
     }

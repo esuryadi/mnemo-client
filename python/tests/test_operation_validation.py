@@ -27,7 +27,7 @@ being added without its validation."""
 
 from __future__ import annotations
 
-from mnemo_client import MnemoChatClient, MnemoClient, MnemoError, MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient
+from mnemo_client import MnemoChatClient, MnemoClient, MnemoEmbedClient, MnemoError, MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient
 
 from fake_server import FakeMnemoServer, FakeServerTestCase
 
@@ -53,6 +53,11 @@ class MnemoOperationValidationTest(FakeServerTestCase):
                 self.assert_sends(f"chat {op.name}", client)
             else:
                 self.assert_refused_before_sending(f"chat {op.name}", client)
+
+    def test_every_embed_operation_checks_its_required_parameters(self) -> None:
+        for op in MnemoEmbedClient.Operation:
+            client = MnemoEmbedClient.Builder().api_key("k").base_url(self.server.url()).operation(op).build()
+            self.assert_refused_before_sending(f"embed {op.name}", client)
 
     def test_every_settings_operation_checks_its_required_parameters(self) -> None:
         need_nothing = {MnemoSettingsClient.Operation.GET_OPTIONS}

@@ -23,7 +23,7 @@ yarn add @panaxon/mnemo-client
 pnpm add @panaxon/mnemo-client
 ```
 
-To pin a version: `npm install @panaxon/mnemo-client@1.1.0`. The package has no runtime dependencies.
+To pin a version: `npm install @panaxon/mnemo-client@1.2.0`. The package has no runtime dependencies.
 
 ```ts
 import { MnemoChatClient, MnemoClientException } from "@panaxon/mnemo-client";
@@ -171,6 +171,107 @@ await new MnemoNetworkClient.Builder()
 ```
 
 `tenantId` is always the tenant making the call; `counterpartTenantId` is the other party.
+
+## Embed a chat in your web app
+
+`<mnemo-chat>` puts a MNEMO chat in your own page with one script tag and one element, from this package (`embed/mnemo-chat.js`, 11 KB gzipped, no dependencies). The page never holds an API key: your Node server uses this library to mint a **short-lived embed token** (15 minutes, one allowed origin, chat only) and hands it to the component.
+
+```
+ visitor's browser                  your server (Node)                MNEMO
+ ┌─────────────────┐  GET /embed-token ┌──────────────────┐  POST mnemo/embed/token  ┌──────┐
+ │  <mnemo-chat>   │ ────────────────▶ │ EmbedTokenEndpoint│ ───────────────────────▶ │ API  │
+ │                 │ ◀──────────────── │ (your API key)    │ ◀─────────────────────── │      │
+ │                 │   embed token     └──────────────────┘      embed token         │      │
+ │                 │ ───────── chat with the embed token, from your origin ─────────▶ │      │
+ └─────────────────┘                                                                  └──────┘
+```
+
+**Server (Express).** The page and the token endpoint; the API key stays here. Put your own sign-in check where `currentUser` is used:
+
+<!-- example: typescript/examples/express-server.ts -->
+```ts
+export function createApp(config: ExampleConfig): Express {
+    // the template holds the credential and the fixed parameters; each request only adds the visitor's id
+    const template = new MnemoEmbedClient.Builder()
+        .apiKey(config.apiKey)
+        .tenantId(config.tenantId)
+        .allowedOrigin(config.allowedOrigin);
+    if (config.baseUrl) {
+        template.baseUrl(config.baseUrl);
+    }
+
+    const app = express();
+
+    app.get("/", (_req, res) => {
+        res.type("html").send(
+            "<!doctype html><title>Support</title><h1>Ask us anything</h1>\n"
+            + EmbedSnippet.render({ tokenUrl: "/mnemo/embed-token", width: "50%", height: 600 }));
+    });
+
+    app.get("/mnemo/embed-token", async (req, res) => {
+        const userId = config.currentUser(req);
+        if (userId === null) {
+            res.status(401).json({ error: "sign in first" });
+            return;
+        }
+        try {
+            res.set("Cache-Control", "no-store").type("application/json")
+                .send(await EmbedTokenEndpoint.handle(template, userId));
+        } catch (e) {
+            // do not pass MNEMO's message on to the browser
+            res.status(e instanceof MnemoClientException && e.httpStatus === 429 ? 429 : 502)
+                .json({ error: "the chat is not available right now" });
+        }
+    });
+
+    return app;
+}
+```
+
+**The page.** `EmbedSnippet.render` produces the two lines; written by hand (or served from the CDN) it is:
+
+<!-- example: typescript/examples/plain-html/index.html -->
+```html
+  <script src="https://cdn.jsdelivr.net/npm/@panaxon/mnemo-client@1.2.0/embed/mnemo-chat.js" async></script>
+  <mnemo-chat token-url="/mnemo/embed-token" width="50%" height="600"></mnemo-chat>
+```
+
+`<mnemo-chat>` works unchanged in React, Vue and Angular (it is a standard custom element; in React 19 and Vue pass `token-url` as an attribute, in Angular add `CUSTOM_ELEMENTS_SCHEMA`). The browser-side code needs no build step. Serve `node_modules/@panaxon/mnemo-client/embed/mnemo-chat.js` yourself if you prefer not to use the CDN.
+
+Calling MNEMO yourself: a streaming chat is `MnemoChatClient.Operation.CHAT_STREAM` (an async iterable of `{event, data}`), and `.embedToken("...")` on a builder authenticates with an embed token (exclusive with `apiKey` and `clientCredentials`). In a browser the builder refuses an API key unless you call `.allowApiKeyInBrowser(true)`: do not.
+
+### `<mnemo-chat>` attributes, events and methods
+
+| Attribute | Meaning |
+|---|---|
+| `token-url` (required) | Your own endpoint that returns `{"token", "expiresAt", "tenantId", "sessionPrefix"}` (what `EmbedTokenEndpoint` produces). The component calls it with the visitor's cookies, again when the token is within 60 seconds of expiring, and once after a failed call. |
+| `base-url` | The MNEMO API base URL when it is not `https://mnemo-api.panaxon.ai/api`. |
+| `width`, `height` | A bare number is pixels (`600`); any CSS length also works (`50%`, `40vh`). |
+| `theme` | `light`, `dark` or `auto` (follows the visitor's system setting). |
+| `placeholder` | Text of the empty message box. |
+| `session-id` | Names the conversation; the component adds the token's `sessionPrefix`. Without it a random id is kept in `sessionStorage`, so a reload continues the same conversation. |
+| `tenant-id` | Only if your token endpoint does not return `tenantId` (`EmbedTokenEndpoint` always does). |
+| `locale` | Language of the built-in labels: `en`, `es`, `fr` or `de`. |
+
+Events (all bubble and are composed, so they cross the Shadow DOM): `mnemo-ready` (the chat is connected), `mnemo-message` (`detail.role`, `detail.text`) and `mnemo-error` (`detail.message`). Methods: `open()` focuses the message box, `reset()` starts a new conversation. Press Escape to stop waiting for an answer.
+
+Answers are untrusted text: the component renders a small, safe subset of Markdown (no HTML pass-through, links open in a new tab with `rel="noopener noreferrer"`, only `http`, `https` and `mailto` links).
+
+### Security checklist
+
+- **Never put an API key, client secret or master token in the page.** The page only ever holds an embed token: it lives at most 15 minutes, works only from the one origin you named, can only chat (no ingest, no delete, no settings, no tokens) and cannot mint another token.
+- **Put the token endpoint behind your own sign-in.** Anyone who can call it gets a chat session billed to your MNEMO tenant. Pass your signed-in user's id as `endUserId`: each visitor then has their own sessions and history. Without it all anonymous visitors of the tenant share one session namespace.
+- **Name exactly one `allowedOrigin`** (`https://app.example.com`, no path, no wildcard; `http://localhost:3000` is accepted for development). A copy of the token lifted from another site is refused.
+- **CSP:** allow the script host in `script-src` (`https://cdn.jsdelivr.net`, or your own host if you serve `mnemo-chat.js` yourself) and the API in `connect-src` (`https://mnemo-api.panaxon.ai`).
+- **Quota:** every message counts against your tenant's plan like any other chat call, and each token is limited to 20 messages per minute.
+
+### Troubleshooting
+
+- *CORS error in the console*: the page's origin is not the `allowedOrigin` the token was minted with (check scheme, host and port), or the token expired (the component refreshes it and retries once).
+- *"This token cannot be used from this origin" (403)*: same cause. A server-side call that sends no `Origin` header is refused too.
+- *Token endpoint 401/403*: your own sign-in check failed, or the API key behind `EmbedTokenEndpoint` is not an ADMIN key of that tenant.
+- *The chat box never appears*: the browser blocked the script (CSP), or the element was written self-closing; custom elements need `<mnemo-chat></mnemo-chat>`.
+- *Needs client 1.2.0 and a MNEMO backend with embed tokens (live since 2026-11-14).*
 
 ## Error handling
 

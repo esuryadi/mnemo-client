@@ -27,6 +27,10 @@ differs for TypeScript.
   depends on that. `MnemoError.Code` values are the `MNERR-xxxx` identifiers.
 - Models are interfaces over the parsed JSON (camelCase, dates as ISO strings). Nothing is validated at runtime.
 
+## Embed component
+
+`src/embed/` is the `<mnemo-chat>` custom element (Shadow DOM, own safe Markdown renderer with no HTML pass-through, labels en/es/fr/de) and is NOT exported from `src/index.ts`, so importing the package in Node stays safe. `npm run build` also bundles it to `embed/mnemo-chat.js` (committed; a test fails when it is stale); the component tests run under happy-dom (`test/embed/`, `vitest.config.ts`). It uses the same `MnemoChatClient` as everyone else, built with `embedToken(...)`. A token is refreshed lazily when it is within 60 s of expiry and once after a failed call (an expired token's 401 has no CORS header, so the browser reports it as a network error). The package ships `dist/`, `embed/mnemo-chat.js`, `LICENSE` and the README only; the publish workflow uploads and downloads both build artifacts and requires the bundle in the tarball.
+
 ## Gotchas
 
 - `fetch` only normalizes the case of some HTTP methods, and `PATCH` is not one of them. Always pass methods in

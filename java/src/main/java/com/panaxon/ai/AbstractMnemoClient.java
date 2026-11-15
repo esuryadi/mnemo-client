@@ -39,6 +39,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.client.jaxrs.internal.ResteasyClientBuilderImpl;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
@@ -52,6 +56,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 /**
  * <b>AbstractMnemoClient</b> holds the plumbing shared by every client implementation: validating the
@@ -79,13 +84,20 @@ abstract class AbstractMnemoClient implements MnemoClient {
     /** Runs {@code call} against a freshly configured JAX-RS client after validating the builder settings. */
     <T> T withTarget(TargetCall<T> call) throws MnemoClientException {
         boolean hasClient = !(isBlank(builder.clientId()) && isBlank(builder.clientSecret()));
+        boolean hasEmbed = !isBlank(builder.embedToken());
         if (hasClient && !isBlank(builder.apiKey())) {
             throw invalid("set either apiKey or clientCredentials, not both");
+        }
+        if (hasEmbed && !isBlank(builder.apiKey())) {
+            throw invalid("set either apiKey or embedToken, not both");
+        }
+        if (hasEmbed && hasClient) {
+            throw invalid("set either clientCredentials or embedToken, not both");
         }
         if (hasClient && (isBlank(builder.clientId()) || isBlank(builder.clientSecret()))) {
             throw invalid("clientCredentials needs both a client id and a client secret");
         }
-        if (!hasClient && isBlank(builder.apiKey())) {
+        if (!hasClient && !hasEmbed && isBlank(builder.apiKey())) {
             throw new MnemoClientException(new MnemoError(MnemoError.Code.MISSING_API_KEY, null));
         }
         if (isBlank(builder.baseUrl())) {
@@ -120,7 +132,7 @@ abstract class AbstractMnemoClient implements MnemoClient {
     /** Adds the credentials to a request: the API key header, or the bearer token of the OAuth client. */
     private Invocation.Builder authorize(Invocation.Builder request, boolean replaceToken) throws MnemoClientException {
         return isBlank(builder.clientId())
-                ? request.header(TOKEN_HEADER, builder.apiKey())
+                ? request.header(TOKEN_HEADER, isBlank(builder.embedToken()) ? builder.apiKey() : builder.embedToken())
                 : request.header(HttpHeaders.AUTHORIZATION, "Bearer " + accessToken(replaceToken));
     }
 
@@ -228,17 +240,28 @@ abstract class AbstractMnemoClient implements MnemoClient {
 
     static List<SseEvent> parseEvents(String text) {
         List<SseEvent> events = new ArrayList<>();
-        String name = null;
-        StringBuilder data = new StringBuilder();
-        boolean open = false;
+        SseParser parser = new SseParser(events::add);
         for (String line : text.split("\r?\n", -1)) {
+            parser.line(line);
+        }
+        parser.finish();
+        return events;
+    }
+
+    /** Builds server-sent events from lines, one at a time, so a stream can be handed on as it arrives. */
+    static final class SseParser {
+        private final Consumer<SseEvent> sink;
+        private String name;
+        private final StringBuilder data = new StringBuilder();
+        private boolean open;
+
+        SseParser(Consumer<SseEvent> sink) {
+            this.sink = sink;
+        }
+
+        void line(String line) {
             if (line.isEmpty()) {
-                if (open) {
-                    events.add(new SseEvent(name == null ? "message" : name, data.toString()));
-                }
-                name = null;
-                data.setLength(0);
-                open = false;
+                finish();
             } else if (!line.startsWith(":")) {
                 int colon = line.indexOf(':');
                 String field = colon < 0 ? line : line.substring(0, colon);
@@ -258,10 +281,58 @@ abstract class AbstractMnemoClient implements MnemoClient {
                 }
             }
         }
-        if (open) {
-            events.add(new SseEvent(name == null ? "message" : name, data.toString()));
+
+        /** Ends the event being built, if any (a blank line, or the end of the stream). */
+        void finish() {
+            if (open) {
+                sink.accept(new SseEvent(name == null ? "message" : name, data.toString()));
+            }
+            name = null;
+            data.setLength(0);
+            open = false;
         }
-        return events;
+    }
+
+    /**
+     * Sends one request that answers with a server-sent event stream and hands each event to {@code sink} as it
+     * arrives, returning when the stream ends. A rejected client-credentials token is replaced and the call retried
+     * once, but only before the first event.
+     */
+    void streamEvents(String method, WebTarget target, Object body, Consumer<SseEvent> sink) throws MnemoClientException {
+        try {
+            attemptStream(method, target, body, sink, false);
+            return;
+        } catch (MnemoClientException e) {
+            if (!tokenRejected(e)) {
+                throw e;
+            }
+        }
+        attemptStream(method, target, body, sink, true);
+    }
+
+    private void attemptStream(String method, WebTarget target, Object body, Consumer<SseEvent> sink, boolean replaceToken)
+            throws MnemoClientException {
+        Invocation invocation = authorize(target.request(MediaType.SERVER_SENT_EVENTS), replaceToken)
+                .build(method, Entity.json(body));
+        try (Response response = invocation.invoke()) {
+            if (response.getStatus() >= 300) {
+                throw failure(response.getStatus(), response);
+            }
+            if (!response.hasEntity()) {
+                return;
+            }
+            SseParser parser = new SseParser(sink);
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(response.readEntity(InputStream.class), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    parser.line(line);
+                }
+            } catch (IOException e) {
+                throw new MnemoClientException(new MnemoError(MnemoError.Code.IO_ERROR, null), e);
+            }
+            parser.finish();
+        }
     }
 
     private static MnemoClientException failure(int status, Response response) {

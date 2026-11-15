@@ -29,6 +29,7 @@ ignored and missing ones take their default, so a newer service never breaks an 
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -41,6 +42,8 @@ def _instant(value: Any) -> Optional[datetime]:
     text = str(value)
     if text.endswith("Z"):
         text = text[:-1] + "+00:00"
+    # fromisoformat (before 3.11) takes only 3 or 6 fractional digits; the service sends up to 9 (nanoseconds).
+    text = re.sub(r"\.(\d+)", lambda m: "." + m.group(1)[:6].ljust(6, "0"), text, count=1)
     return datetime.fromisoformat(text)
 
 
@@ -130,6 +133,9 @@ class RagQueryResponse:
     retrieval_tier: Optional[str] = None
     subjects_used: List[str] = field(default_factory=list)
     token_usage: Optional[TokenUsage] = None
+    # Only on a not-found, when the server knows why: OUT_OF_SCOPE, NOT_IN_MEMORY, AMBIGUOUS_ENTITY, PARTIAL_MATCH,
+    # INDEX_NOT_READY, UNVERIFIED_ANSWER (STALE is reserved and never sent). A string, so a later code does not break an older client.
+    reason: Optional[str] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> RagQueryResponse:
@@ -137,7 +143,7 @@ class RagQueryResponse:
                    authority=data.get("authority"), confidence=data.get("confidence"),
                    last_updated=_instant(data.get("lastUpdated")), retrieval_tier=data.get("retrievalTier"),
                    subjects_used=list(data.get("subjectsUsed") or []),
-                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")))
+                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")), reason=data.get("reason"))
 
 
 @dataclass(frozen=True)
@@ -161,3 +167,34 @@ class SettingsResponse:
                    lookback_days=data.get("lookbackDays") or 0, encrypt_data=bool(data.get("encryptData")),
                    shared_memory_ttl_hours=data.get("sharedMemoryTtlHours") or 0,
                    updated_at=_instant(data.get("updatedAt")))
+
+
+@dataclass(frozen=True)
+class EmbedToken:
+    """A short-lived token for the ``<mnemo-chat>`` component (result of ``MnemoEmbedClient.Operation.MINT_TOKEN``).
+
+    It is safe to hand to one visitor's browser; the API key that minted it is not. ``session_prefix`` is what every
+    session id used with the token must start with.
+    """
+
+    token: str
+    expires_at: datetime
+    tenant_id: Optional[str] = None
+    session_prefix: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> EmbedToken:
+        expires_at = _instant(data["expiresAt"])
+        if not isinstance(data["token"], str) or not isinstance(data["sessionPrefix"], str) or expires_at is None:
+            raise TypeError("malformed embed token")
+        return cls(token=data["token"], expires_at=expires_at, tenant_id=data.get("tenantId"),
+                   session_prefix=data["sessionPrefix"])
+
+
+@dataclass(frozen=True)
+class StreamEvent:
+    """One server-sent event of a streamed call (``MnemoChatClient.Operation.CHAT_STREAM``): the event name
+    (``message`` when the server gave none) and its data text, which is JSON for the MNEMO events."""
+
+    event: str
+    data: str

@@ -30,6 +30,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.panaxon.ai.exception.MnemoClientException;
 import com.panaxon.ai.exception.MnemoError;
 import com.panaxon.ai.model.ChatMessageResponse;
+import com.panaxon.ai.model.StreamEvent;
 import jakarta.ws.rs.client.WebTarget;
 import jakarta.ws.rs.core.GenericType;
 
@@ -37,6 +38,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * <b>MnemoChatClientImpl</b> is a concrete implementation of the {@link MnemoChatClient} interface.
@@ -66,6 +68,7 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
         }
         return (T) withTarget(base -> switch (operation) {
             case INIT_SESSION -> initSession(base);
+            case CHAT_STREAM -> chatStream(base);
             case CHAT -> chat(base);
             case LIST_SESSIONS -> listSessions(base);
             case GET_HISTORY -> getHistory(base);
@@ -105,6 +108,20 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
         result.put("ready", true);
         result.put("stages", stages);
         return result;
+    }
+
+    private Object chatStream(WebTarget base) throws MnemoClientException {
+        Map<String, Object> body = body("tenantId", require(tenantId(), "tenantId"),
+                "sessionId", require(builder.sessionId(), "sessionId"),
+                "message", require(builder.message(), "message"),
+                "role", builder.role(), "answerFromJobText", builder.answerFromJobText());
+        Consumer<StreamEvent> onEvent = builder.onEvent();
+        if (onEvent == null) {
+            throw invalid("onEvent is required");
+        }
+        streamEvents("POST", base.path("mnemo/chat/stream"), body,
+                event -> onEvent.accept(new StreamEvent(event.name(), event.data())));
+        return null;
     }
 
     private static Map<String, Object> parse(String json) throws MnemoClientException {

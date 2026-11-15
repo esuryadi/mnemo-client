@@ -79,6 +79,14 @@ class MnemoOperationValidationTest {
     }
 
     @Test
+    void everyEmbedOperationChecksItsRequiredParameters() {
+        for (MnemoEmbedClient.Operation op : MnemoEmbedClient.Operation.values()) {
+            assertRefusedBeforeSending("embed " + op,
+                    new MnemoEmbedClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build());
+        }
+    }
+
+    @Test
     void everySettingsOperationChecksItsRequiredParameters() throws Exception {
         Set<MnemoSettingsClient.Operation> needNothing = EnumSet.of(MnemoSettingsClient.Operation.GET_OPTIONS);
         for (MnemoSettingsClient.Operation op : MnemoSettingsClient.Operation.values()) {

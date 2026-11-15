@@ -19,11 +19,11 @@ All three share one version number, so the same version gives you the same opera
 <dependency>
     <groupId>ai.panaxon</groupId>
     <artifactId>mnemo-client</artifactId>
-    <version>1.1.0</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
-or with Gradle: `implementation("ai.panaxon:mnemo-client:1.1.0")`
+or with Gradle: `implementation("ai.panaxon:mnemo-client:1.2.0")`
 
 **TypeScript / JavaScript** (Node 18+), from npm:
 
@@ -47,6 +47,23 @@ from mnemo_client import MnemoChatClient
 
 The TypeScript and Python clients have no runtime dependencies. Usage, operations and error handling are in each
 language's README.
+
+## Embed a chat in your web app
+
+Since 1.2.0 a chat can live in your own page: one script tag and one element, in any stack.
+
+```html
+<script src="https://cdn.jsdelivr.net/npm/@panaxon/mnemo-client@1.2.0/embed/mnemo-chat.js" async></script>
+<mnemo-chat token-url="/mnemo/embed-token" width="50%" height="600"></mnemo-chat>
+```
+
+The component (`<mnemo-chat>`, one file, no dependencies, bundled in all three packages) never sees your API key. Your server mints a short-lived embed token with `EmbedTokenEndpoint` (Java, TypeScript and Python each have it, plus `EmbedSnippet` to render the HTML) and the component refreshes it. Each language's README has the quick start, the attribute and event reference, framework recipes, the security checklist and troubleshooting:
+
+- [Java](java/README.md#embed-a-chat-in-your-web-app)
+- [TypeScript](typescript/README.md#embed-a-chat-in-your-web-app)
+- [Python](python/README.md#embed-a-chat-in-your-web-app)
+
+Needs client 1.2.0 and a MNEMO backend with embed tokens (live since 2026-11-14).
 
 ## Authentication
 

@@ -66,7 +66,8 @@ describe("MnemoRAGClient", () => {
         expect(notFound.reason).toBe("PARTIAL_MATCH");
 
         server.reply(200, `{"answer":"x","found":true}`);
-        expect((await builder().ragId("kb").query("q").build().execute()).reason).toBeUndefined();
+        const found = await builder().ragId("kb").query("q").build().execute<RagQueryResponse>();
+        expect(found.reason).toBeUndefined();
     });
 
     it("additional context is omitted when not set", async () => {

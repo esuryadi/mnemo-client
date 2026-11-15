@@ -6,6 +6,7 @@
 - `MnemoEmbedClient` (`MINT_TOKEN`) mints a short-lived, origin-bound embed token on your server; `EmbedTokenEndpoint` and `EmbedSnippet` (Java, TypeScript, Python) are the two helpers every integration needs. Needs a MNEMO backend with embed tokens.
 - `MnemoChatClient.Operation.CHAT_STREAM`: streaming chat (`POST mnemo/chat/stream`) as events arrive (Java callback, TypeScript async iterable, Python generator).
 - `embedToken(...)` on every builder: a third credential, exclusive with `apiKey` and `clientCredentials`. TypeScript refuses an API key in a browser unless `allowApiKeyInBrowser(true)`.
+- `RagQueryResponse.reason`: the optional reason a MnemoRAG answer was not found (`OUT_OF_SCOPE`, `NOT_IN_MEMORY`, ...), absent when found.
 - Python parses service timestamps with nanoseconds on Python < 3.11.
 
 ## 1.1.0

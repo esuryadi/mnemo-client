@@ -61,7 +61,7 @@ describe("MnemoRAGClient", () => {
 
     it("a not-found carries its reason and a found answer has none", async () => {
         server.reply(200, `{"answer":"not found","found":false,"retrievalTier":"not_found","reason":"PARTIAL_MATCH"}`);
-        const notFound = await builder().ragId("kb").query("q").build().execute();
+        const notFound = await builder().ragId("kb").query("q").build().execute<RagQueryResponse>();
         expect(notFound.found).toBe(false);
         expect(notFound.reason).toBe("PARTIAL_MATCH");
 

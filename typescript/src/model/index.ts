@@ -75,7 +75,8 @@ export interface ChatMessageResponse {
 /**
  * The result of the opt-in groundedness check on one answer: whether the stored text it was written from supports it (not that the answer or
  * the data is true). `verdict` is GROUNDED, PARTIAL or UNVERIFIED; `notice` is the sentence to show for the last two; `followUp` and
- * `followUpText` are only on a streamed chat reply.
+ * `followUpText` are only ever on a streamed chat result, never on a MnemoRAG one. Today the server sends the chat result only on the
+ * stream Dorothy's web client asks for, not on POST mnemo/chat, so ChatMessageResponse.groundedness is not populated for this client.
  */
 export interface Groundedness {
     score: number;

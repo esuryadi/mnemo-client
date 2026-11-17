@@ -98,7 +98,9 @@ class Groundedness:
     """The opt-in groundedness check's result for one answer: whether the stored text supports it (not that the answer or the data is true).
 
     ``verdict`` is GROUNDED, PARTIAL or UNVERIFIED; ``notice`` is the sentence to show for the last two; ``follow_up`` and
-    ``follow_up_text`` are only on a streamed chat reply. Strings, so a value added later does not break an older client.
+    ``follow_up_text`` are only ever on a streamed chat result, never on a MnemoRAG one. Today the server sends the chat result only on
+    the stream Dorothy's web client asks for, not on ``POST mnemo/chat``, so ``ChatMessageResponse.groundedness`` is not populated for
+    this client; the MnemoRAG one is. Strings, so a value added later does not break an older client.
     """
 
     score: float = 0.0

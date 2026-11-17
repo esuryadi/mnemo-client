@@ -32,8 +32,12 @@ import java.util.List;
  * account (chat) or a MnemoRAG configuration that turned the check on, and only when the check ran; a slow or failed check is simply absent.
  * It says the stored data supports the answer, not that the answer or the data is true.
  *
+ * <p>Today the server sends the chat result only on the stream that Dorothy's web client asks for, never on {@code POST mnemo/chat}, so
+ * {@code ChatMessageResponse.groundedness()} is null for this client; it is modelled so that a later server can fill it. The MnemoRAG
+ * result (a configuration created with {@code checkGroundedness}) is sent to API callers.</p>
+ *
  * <p>{@code verdict} is {@code GROUNDED}, {@code PARTIAL} or {@code UNVERIFIED}. {@code notice} is the sentence to show for the last two.
- * {@code followUp} ({@code search_all_memory} or {@code which_subject}) and {@code followUpText} are only on a streamed chat reply. Strings,
+ * {@code followUp} ({@code search_all_memory} or {@code which_subject}) and {@code followUpText} are only ever on a streamed chat result, never on a MnemoRAG one. Strings,
  * so a value added later does not break an older client.</p>
  *
  * @author edward.suryadi

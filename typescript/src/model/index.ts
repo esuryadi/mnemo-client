@@ -60,6 +60,32 @@ export interface ChatMessageResponse {
     reasoningTrace?: string | null;
     quotaWarning?: string | null;
     tokenUsage?: TokenUsage | null;
+    /** Why a plain not-found is one (a code such as NOT_IN_MEMORY); absent otherwise. A string, so a later code does not break an older client. */
+    reason?: string | null;
+    /** Where an answer built from stored data came from, who stands behind that data, and how far to trust it (high, medium or low). */
+    source?: string | null;
+    authority?: string | null;
+    confidence?: string | null;
+    /** The one plain sentence for `reason`; present exactly when `reason` is. */
+    explanation?: string | null;
+    /** The opt-in groundedness check's result; absent unless the account turned the check on and it ran. */
+    groundedness?: Groundedness | null;
+}
+
+/**
+ * The result of the opt-in groundedness check on one answer: whether the stored text it was written from supports it (not that the answer or
+ * the data is true). `verdict` is GROUNDED, PARTIAL or UNVERIFIED; `notice` is the sentence to show for the last two; `followUp` and
+ * `followUpText` are only on a streamed chat reply.
+ */
+export interface Groundedness {
+    score: number;
+    verdict: string;
+    reason?: string | null;
+    unsupportedClaims?: string[] | null;
+    notice?: string | null;
+    followUp?: string | null;
+    followUpText?: string | null;
+    truncated?: boolean;
 }
 
 /** The answer to a MnemoRAG query (result of {@code MnemoRAGClient.Operation.QUERY}). */
@@ -79,6 +105,13 @@ export interface RagQueryResponse {
      * INDEX_NOT_READY, UNVERIFIED_ANSWER (STALE is reserved and never sent). A string, so a later code does not break an older client.
      */
     reason?: string | null;
+    /** The one plain sentence for `reason` (also INCOMPLETE_DATA is a possible reason); present exactly when `reason` is. */
+    explanation?: string | null;
+    /**
+     * Only for a configuration created with checkGroundedness on, a found answer the check ran on, and when it finished in time. Such a
+     * configuration adds up to about 4 seconds to every response.
+     */
+    groundedness?: Groundedness | null;
 }
 
 /** An account's MNEMO settings. The provider API key is never returned, only whether one is stored. */

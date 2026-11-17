@@ -94,6 +94,33 @@ class Attachment:
 
 
 @dataclass(frozen=True)
+class Groundedness:
+    """The opt-in groundedness check's result for one answer: whether the stored text supports it (not that the answer or the data is true).
+
+    ``verdict`` is GROUNDED, PARTIAL or UNVERIFIED; ``notice`` is the sentence to show for the last two; ``follow_up`` and
+    ``follow_up_text`` are only on a streamed chat reply. Strings, so a value added later does not break an older client.
+    """
+
+    score: float = 0.0
+    verdict: Optional[str] = None
+    reason: Optional[str] = None
+    unsupported_claims: List[str] = field(default_factory=list)
+    notice: Optional[str] = None
+    follow_up: Optional[str] = None
+    follow_up_text: Optional[str] = None
+    truncated: bool = False
+
+    @classmethod
+    def from_dict(cls, data: Optional[Dict[str, Any]]) -> Optional[Groundedness]:
+        if data is None:
+            return None
+        return cls(score=float(data.get("score") or 0.0), verdict=data.get("verdict"), reason=data.get("reason"),
+                   unsupported_claims=list(data.get("unsupportedClaims") or []), notice=data.get("notice"),
+                   follow_up=data.get("followUp"), follow_up_text=data.get("followUpText"),
+                   truncated=bool(data.get("truncated")))
+
+
+@dataclass(frozen=True)
 class ChatMessageResponse:
     """The assistant reply to a chat message (result of ``MnemoChatClient.Operation.CHAT``)."""
 
@@ -108,6 +135,14 @@ class ChatMessageResponse:
     reasoning_trace: Optional[str] = None
     quota_warning: Optional[str] = None
     token_usage: Optional[TokenUsage] = None
+    # Additive, None when the server did not send them. reason/explanation: why a plain not-found is one. source/authority/confidence
+    # (high, medium or low): where an answer built from stored data came from. groundedness: the opt-in check's result.
+    reason: Optional[str] = None
+    source: Optional[str] = None
+    authority: Optional[str] = None
+    confidence: Optional[str] = None
+    explanation: Optional[str] = None
+    groundedness: Optional[Groundedness] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> ChatMessageResponse:
@@ -117,7 +152,10 @@ class ChatMessageResponse:
                    attachments=None if attachments is None else [Attachment.from_dict(a) for a in attachments],
                    timestamp=data.get("timestamp") or 0, timing=ResponseTiming.from_dict(data.get("timing")),
                    session_name=data.get("sessionName"), reasoning_trace=data.get("reasoningTrace"),
-                   quota_warning=data.get("quotaWarning"), token_usage=TokenUsage.from_dict(data.get("tokenUsage")))
+                   quota_warning=data.get("quotaWarning"), token_usage=TokenUsage.from_dict(data.get("tokenUsage")),
+                   reason=data.get("reason"), source=data.get("source"), authority=data.get("authority"),
+                   confidence=data.get("confidence"), explanation=data.get("explanation"),
+                   groundedness=Groundedness.from_dict(data.get("groundedness")))
 
 
 @dataclass(frozen=True)
@@ -134,8 +172,13 @@ class RagQueryResponse:
     subjects_used: List[str] = field(default_factory=list)
     token_usage: Optional[TokenUsage] = None
     # Only on a not-found, when the server knows why: OUT_OF_SCOPE, NOT_IN_MEMORY, AMBIGUOUS_ENTITY, PARTIAL_MATCH,
-    # INDEX_NOT_READY, UNVERIFIED_ANSWER (STALE is reserved and never sent). A string, so a later code does not break an older client.
+    # INDEX_NOT_READY, UNVERIFIED_ANSWER, INCOMPLETE_DATA (STALE is reserved and never sent). A string, so a later code does not break an older client.
     reason: Optional[str] = None
+    # The one plain sentence for ``reason``; present exactly when ``reason`` is.
+    explanation: Optional[str] = None
+    # Only for a configuration created with checkGroundedness on, a found answer the check ran on, and when it finished in time.
+    # Such a configuration adds up to about 4 seconds to every response.
+    groundedness: Optional[Groundedness] = None
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> RagQueryResponse:
@@ -143,7 +186,8 @@ class RagQueryResponse:
                    authority=data.get("authority"), confidence=data.get("confidence"),
                    last_updated=_instant(data.get("lastUpdated")), retrieval_tier=data.get("retrievalTier"),
                    subjects_used=list(data.get("subjectsUsed") or []),
-                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")), reason=data.get("reason"))
+                   token_usage=TokenUsage.from_dict(data.get("tokenUsage")), reason=data.get("reason"),
+                   explanation=data.get("explanation"), groundedness=Groundedness.from_dict(data.get("groundedness")))
 
 
 @dataclass(frozen=True)

@@ -91,6 +91,22 @@ class MnemoRAGClientTest {
     }
 
     @Test
+    void aNotFoundCarriesItsExplanation_andACheckedAnswerCarriesItsGroundedness() throws Exception {
+        server.reply(200, "{\"answer\":\"no\",\"found\":false,\"retrievalTier\":\"not_found\",\"reason\":\"INCOMPLETE_DATA\","
+                + "\"explanation\":\"I don't have enough matching data to compute that.\"}");
+        RagQueryResponse notFound = builder().ragId("kb").query("q").build().execute();
+        assertEquals("INCOMPLETE_DATA", notFound.reason());
+        assertEquals("I don't have enough matching data to compute that.", notFound.explanation());
+        assertNull(notFound.groundedness());
+
+        server.reply(200, "{\"answer\":\"x\",\"found\":true,\"groundedness\":{\"score\":1.0,\"verdict\":\"GROUNDED\"}}");
+        RagQueryResponse found = builder().ragId("kb").query("q").build().execute();
+        assertEquals("GROUNDED", found.groundedness().verdict());
+        assertNull(found.groundedness().notice());
+        assertNull(found.explanation());
+    }
+
+    @Test
     void additionalContextIsOmittedWhenNotSet() throws Exception {
         server.reply(200, "{\"answer\":\"x\",\"found\":false}");
         builder().ragId("kb").query("q").build().execute();

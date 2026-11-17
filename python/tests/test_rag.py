@@ -66,6 +66,20 @@ class MnemoRAGClientTest(FakeServerTestCase):
         self.server.reply(200, '{"answer":"x","found":true}')
         self.assertIsNone(self.builder().rag_id("kb").query("q").build().execute().reason)
 
+    def test_a_not_found_carries_its_explanation_and_a_checked_answer_carries_its_groundedness(self) -> None:
+        self.server.reply(200, '{"answer":"no","found":false,"retrievalTier":"not_found","reason":"INCOMPLETE_DATA",'
+                               '"explanation":"I don\'t have enough matching data to compute that."}')
+        not_found = self.builder().rag_id("kb").query("q").build().execute()
+        self.assertEqual("INCOMPLETE_DATA", not_found.reason)
+        self.assertEqual("I don't have enough matching data to compute that.", not_found.explanation)
+        self.assertIsNone(not_found.groundedness)
+
+        self.server.reply(200, '{"answer":"x","found":true,"groundedness":{"score":1.0,"verdict":"GROUNDED"}}')
+        found = self.builder().rag_id("kb").query("q").build().execute()
+        self.assertEqual("GROUNDED", found.groundedness.verdict)
+        self.assertIsNone(found.groundedness.notice)
+        self.assertIsNone(found.explanation)
+
     def test_additional_context_is_omitted_when_not_set(self) -> None:
         self.server.reply(200, '{"answer":"x","found":false}')
         r = self.builder().rag_id("kb").query("q").build().execute()

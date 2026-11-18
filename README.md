@@ -1,6 +1,8 @@
 # mnemo-client
 M.N.E.M.O. API public client library to communicate with Mnemo API 
 
+The full API reference, with a Try it for every call and written guides, is in the [developer guide](https://panaxon.ai/developers/api).
+
 ## Clients
 
 | Language | Status | Docs |

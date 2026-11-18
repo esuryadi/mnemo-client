@@ -57,6 +57,34 @@ class MnemoChatClientTest {
     }
 
     @Test
+    void aReplyCarriesTheAdditiveAnswerFieldsAndTheGroundednessResult_andAnOldReplyHasNone() throws Exception {
+        server.reply(200, """
+                {"tenantId":"acme","sessionId":"s1","id":"m1","message":"Revenue is 100.","timestamp":1,
+                 "source":"finance.xlsx","authority":"Finance dept","confidence":"high",
+                 "groundedness":{"score":0.2,"verdict":"UNVERIFIED","reason":"Not in the data.","unsupportedClaims":["500"],
+                                 "notice":"I could not verify this against your data.","followUp":"search_all_memory",
+                                 "followUpText":"Search all?","truncated":true,"aFutureField":1}}""");
+        ChatMessageResponse reply = builder().sessionId("s1").message("revenue?").build().execute();
+
+        assertEquals("finance.xlsx", reply.source());
+        assertEquals("Finance dept", reply.authority());
+        assertEquals("high", reply.confidence());
+        assertEquals("UNVERIFIED", reply.groundedness().verdict());
+        assertEquals(List.of("500"), reply.groundedness().unsupportedClaims());
+        assertEquals("search_all_memory", reply.groundedness().followUp());
+        assertEquals(true, reply.groundedness().truncated());
+        assertNull(reply.reason());
+
+        server.reply(200, "{\"tenantId\":\"acme\",\"id\":\"m2\",\"message\":\"I could not find that.\",\"timestamp\":1,"
+                + "\"reason\":\"NOT_IN_MEMORY\",\"explanation\":\"I searched your stored data and found nothing about this.\"}");
+        ChatMessageResponse notFound = builder().sessionId("s1").message("who?").build().execute();
+        assertEquals("NOT_IN_MEMORY", notFound.reason());
+        assertEquals("I searched your stored data and found nothing about this.", notFound.explanation());
+        assertNull(notFound.source());
+        assertNull(notFound.groundedness());
+    }
+
+    @Test
     void chatPostsRequestAndParsesReply() throws Exception {
         server.reply(200, """
                 {"tenantId":"acme","sessionId":"s1","id":"m1","message":"You had pasta.","attachments":null,

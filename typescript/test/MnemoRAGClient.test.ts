@@ -70,6 +70,20 @@ describe("MnemoRAGClient", () => {
         expect(found.reason).toBeUndefined();
     });
 
+    it("a not-found carries its explanation and a checked answer carries its groundedness", async () => {
+        server.reply(200, `{"answer":"no","found":false,"retrievalTier":"not_found","reason":"INCOMPLETE_DATA","explanation":"I don't have enough matching data to compute that."}`);
+        const notFound = await builder().ragId("kb").query("q").build().execute<RagQueryResponse>();
+        expect(notFound.reason).toBe("INCOMPLETE_DATA");
+        expect(notFound.explanation).toBe("I don't have enough matching data to compute that.");
+        expect(notFound.groundedness).toBeUndefined();
+
+        server.reply(200, `{"answer":"x","found":true,"groundedness":{"score":1.0,"verdict":"GROUNDED"}}`);
+        const found = await builder().ragId("kb").query("q").build().execute<RagQueryResponse>();
+        expect(found.groundedness?.verdict).toBe("GROUNDED");
+        expect(found.groundedness?.notice).toBeUndefined();
+        expect(found.explanation).toBeUndefined();
+    });
+
     it("additional context is omitted when not set", async () => {
         server.reply(200, `{"answer":"x","found":false}`);
         await builder().ragId("kb").query("q").build().execute();

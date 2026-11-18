@@ -32,20 +32,33 @@ import java.util.List;
  * The answer to a MnemoRAG query (result of {@link com.panaxon.ai.MnemoRAGClient}).
  *
  * <p>{@code reason} is present only on a not-found ({@code found} false) when the server knows why: {@code OUT_OF_SCOPE},
- * {@code NOT_IN_MEMORY}, {@code AMBIGUOUS_ENTITY}, {@code PARTIAL_MATCH}, {@code INDEX_NOT_READY}, {@code UNVERIFIED_ANSWER}. {@code STALE} is
- * reserved and is never sent. It is a string, so a code added later does not break an older client.</p>
+ * {@code NOT_IN_MEMORY}, {@code AMBIGUOUS_ENTITY}, {@code PARTIAL_MATCH}, {@code INDEX_NOT_READY}, {@code UNVERIFIED_ANSWER}, {@code INCOMPLETE_DATA}. {@code STALE} is
+ * reserved and is never sent. It is a string, so a code added later does not break an older client. {@code explanation} is the one plain
+ * sentence the server gives for that reason (present exactly when {@code reason} is).</p>
+ *
+ * <p>{@code groundedness} is present only for a configuration created with {@code checkGroundedness} on, only for a found answer the check ran
+ * on, and only when it finished in time (see {@link Groundedness}). Such a configuration adds up to about 4 seconds to every response.</p>
  *
  * @author edward.suryadi
  * @since 1.0
  */
 public record RagQueryResponse(String answer, boolean found, String source, String authority, String confidence, Instant lastUpdated,
-                               String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage, String reason) {
+                               String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage, String reason, String explanation,
+                               Groundedness groundedness) {
+
+    /**
+     * A response without an explanation or a groundedness result, the shape every response had before they existed.
+     */
+    public RagQueryResponse(String answer, boolean found, String source, String authority, String confidence, Instant lastUpdated,
+                            String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage, String reason) {
+        this(answer, found, source, authority, confidence, lastUpdated, retrievalTier, subjectsUsed, tokenUsage, reason, null, null);
+    }
 
     /**
      * A response without a reason, the shape every response had before {@code reason} existed.
      */
     public RagQueryResponse(String answer, boolean found, String source, String authority, String confidence, Instant lastUpdated,
                             String retrievalTier, List<String> subjectsUsed, TokenUsage tokenUsage) {
-        this(answer, found, source, authority, confidence, lastUpdated, retrievalTier, subjectsUsed, tokenUsage, null);
+        this(answer, found, source, authority, confidence, lastUpdated, retrievalTier, subjectsUsed, tokenUsage, null, null, null);
     }
 }

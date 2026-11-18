@@ -30,10 +30,24 @@ import java.util.List;
 /**
  * The assistant reply to a chat message (result of {@link com.panaxon.ai.MnemoChatClient.Operation#CHAT}).
  *
+ * <p>The last six components are additive and null when the server did not send them: {@code source}, {@code authority} and
+ * {@code confidence} ({@code high}, {@code medium} or {@code low}) say where an answer built from stored data came from; {@code reason} and
+ * {@code explanation} say why a plain not-found is one; {@code groundedness} is the opt-in check's result (see {@link Groundedness}).</p>
+ *
  * @author edward.suryadi
  * @since 1.0
  */
 public record ChatMessageResponse(String tenantId, String sessionId, String id, String message, List<Attachment> attachments, long timestamp,
                                   ResponseTiming timing, String sessionName, String reasoningTrace,
-                                  String quotaWarning, TokenUsage tokenUsage) {
+                                  String quotaWarning, TokenUsage tokenUsage, String reason, String source, String authority,
+                                  String confidence, String explanation, Groundedness groundedness) {
+
+    /**
+     * A reply without the answer fields, the shape every reply had before they existed.
+     */
+    public ChatMessageResponse(String tenantId, String sessionId, String id, String message, List<Attachment> attachments, long timestamp,
+                               ResponseTiming timing, String sessionName, String reasoningTrace, String quotaWarning, TokenUsage tokenUsage) {
+        this(tenantId, sessionId, id, message, attachments, timestamp, timing, sessionName, reasoningTrace, quotaWarning, tokenUsage,
+                null, null, null, null, null, null);
+    }
 }

@@ -50,6 +50,30 @@ class MnemoChatClientTest(FakeServerTestCase):
     def builder(self) -> MnemoChatClient.Builder:
         return MnemoChatClient.Builder().api_key("tok-1").base_url(self.server.url()).tenant_id("acme")
 
+    def test_a_reply_carries_the_additive_answer_fields_and_the_groundedness_result_and_an_old_reply_has_none(self) -> None:
+        self.server.reply(200, """{"tenantId":"acme","id":"m1","message":"Revenue is 100.","timestamp":1,
+            "source":"finance.xlsx","authority":"Finance dept","confidence":"high",
+            "groundedness":{"score":0.2,"verdict":"UNVERIFIED","reason":"Not in the data.","unsupportedClaims":["500"],
+            "notice":"I could not verify this against your data.","followUp":"search_all_memory","followUpText":"Search all?",
+            "truncated":true,"aFutureField":1}}""")
+        reply = self.builder().session_id("s1").message("revenue?").build().execute()
+        self.assertEqual("finance.xlsx", reply.source)
+        self.assertEqual("Finance dept", reply.authority)
+        self.assertEqual("high", reply.confidence)
+        self.assertEqual("UNVERIFIED", reply.groundedness.verdict)
+        self.assertEqual(["500"], reply.groundedness.unsupported_claims)
+        self.assertEqual("search_all_memory", reply.groundedness.follow_up)
+        self.assertTrue(reply.groundedness.truncated)
+        self.assertIsNone(reply.reason)
+
+        self.server.reply(200, '{"id":"m2","message":"I could not find that.","timestamp":1,"reason":"NOT_IN_MEMORY",'
+                               '"explanation":"I searched your stored data and found nothing about this."}')
+        not_found = self.builder().session_id("s1").message("who?").build().execute()
+        self.assertEqual("NOT_IN_MEMORY", not_found.reason)
+        self.assertEqual("I searched your stored data and found nothing about this.", not_found.explanation)
+        self.assertIsNone(not_found.source)
+        self.assertIsNone(not_found.groundedness)
+
     def test_chat_posts_request_and_parses_reply(self) -> None:
         self.server.reply(200, """{"tenantId":"acme","sessionId":"s1","id":"m1","message":"You had pasta.",
             "attachments":[{"subject":"Meals","mimeType":"text/plain"}],"timestamp":1700000000000,

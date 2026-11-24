@@ -190,17 +190,6 @@ class MnemoChatClientTest {
     }
 
     @Test
-    void renameSessionUsesPatch() throws Exception {
-        server.reply(200, "{\"sessionName\":\"Trip\"}");
-        Map<String, Object> result = builder().operation(MnemoChatClient.Operation.RENAME_SESSION)
-                .sessionId("s1").sessionName("Trip").build().execute();
-        assertEquals("Trip", result.get("sessionName"));
-        assertEquals("PATCH", server.last().method());
-        assertEquals("/mnemo/sessions/s1/name", server.last().path());
-        assertEquals(Map.of("tenantId", "acme", "sessionName", "Trip"), JSON.readValue(server.last().body(), Map.class));
-    }
-
-    @Test
     void closeSessionPassesPermanentFlag() throws Exception {
         server.reply(204, "");
         builder().operation(MnemoChatClient.Operation.CLOSE_SESSION).sessionId("s1").permanent(true)

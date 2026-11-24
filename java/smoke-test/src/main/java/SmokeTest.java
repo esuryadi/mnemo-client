@@ -1,8 +1,6 @@
 import com.panaxon.ai.MnemoChatClient;
 import com.panaxon.ai.MnemoClient;
-import com.panaxon.ai.MnemoNetworkClient;
 import com.panaxon.ai.MnemoRAGClient;
-import com.panaxon.ai.MnemoSettingsClient;
 import com.panaxon.ai.exception.MnemoClientException;
 import com.panaxon.ai.exception.MnemoError;
 
@@ -22,10 +20,8 @@ public class SmokeTest {
         // every client can be built from its public builder, and only the interface type is needed
         MnemoClient[] built = {
                 new MnemoChatClient.Builder().apiKey("k").build(),
-                new MnemoRAGClient.Builder().apiKey("k").build(),
-                new MnemoSettingsClient.Builder().apiKey("k").build(),
-                new MnemoNetworkClient.Builder().apiKey("k").build()};
-        check("all four clients build", built.length == 4);
+                new MnemoRAGClient.Builder().apiKey("k").build()};
+        check("both clients build", built.length == 2);
 
         // a missing parameter is refused locally, with the structured error
         try {

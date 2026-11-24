@@ -117,8 +117,8 @@ abstract class AbstractMnemoClient implements MnemoClient {
     private Client newClient() {
         long millis = builder.timeout().toMillis();
         // RESTEasy is built directly, not found through ClientBuilder.newBuilder(): that picks whichever JAX-RS implementation
-        // comes first on the application's classpath, and with Jersey it cannot send PATCH (RENAME_SESSION,
-        // UPDATE_SUBJECT_DESCRIPTION). The class is in an "internal" package but has a public constructor and is
+        // comes first on the application's classpath, and with Jersey it cannot send PATCH
+        // (UPDATE_SUBJECT_DESCRIPTION). The class is in an "internal" package but has a public constructor and is
         // the documented way to instantiate RESTEasy's client directly.
         return new ResteasyClientBuilderImpl()
                 .connectTimeout(millis, TimeUnit.MILLISECONDS)

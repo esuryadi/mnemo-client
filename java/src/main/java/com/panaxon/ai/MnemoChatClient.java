@@ -106,8 +106,6 @@ public interface MnemoChatClient extends MnemoClient {
         LIST_SESSIONS,
         /** One page of a session's history, newest first; needs tenantId, sessionId, optional before/size. Returns {@code Map<String, Object>}. */
         GET_HISTORY,
-        /** Renames a session; needs tenantId, sessionId, sessionName. Returns {@code Map<String, Object>}. */
-        RENAME_SESSION,
         /** Closes a session, or deletes it when {@code permanent}; needs tenantId, sessionId. Returns {@code null}. */
         CLOSE_SESSION,
         /** Lists the tenant's memory subjects; needs tenantId. Returns {@code List<Map<String, Object>>}. */
@@ -164,7 +162,7 @@ public interface MnemoChatClient extends MnemoClient {
             return this;
         }
 
-        /** The name for {@link Operation#INIT_SESSION} (optional), or the new name for {@link Operation#RENAME_SESSION}. */
+        /** The name for {@link Operation#INIT_SESSION} (optional). */
         public Builder sessionName(String sessionName) {
             this.sessionName = sessionName;
             return this;

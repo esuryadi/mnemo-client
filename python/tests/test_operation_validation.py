@@ -27,7 +27,7 @@ being added without its validation."""
 
 from __future__ import annotations
 
-from mnemo_client import MnemoChatClient, MnemoClient, MnemoEmbedClient, MnemoError, MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient
+from mnemo_client import MnemoChatClient, MnemoClient, MnemoEmbedClient, MnemoError, MnemoRAGClient
 
 from fake_server import FakeMnemoServer, FakeServerTestCase
 
@@ -59,24 +59,6 @@ class MnemoOperationValidationTest(FakeServerTestCase):
             client = MnemoEmbedClient.Builder().api_key("k").base_url(self.server.url()).operation(op).build()
             self.assert_refused_before_sending(f"embed {op.name}", client)
 
-    def test_every_settings_operation_checks_its_required_parameters(self) -> None:
-        need_nothing = {MnemoSettingsClient.Operation.GET_OPTIONS}
-        for op in MnemoSettingsClient.Operation:
-            client = MnemoSettingsClient.Builder().api_key("k").base_url(self.server.url()).operation(op).build()
-            if op in need_nothing:
-                self.assert_sends(f"settings {op.name}", client)
-            else:
-                self.assert_refused_before_sending(f"settings {op.name}", client)
-
-    def test_every_network_operation_checks_its_required_parameters(self) -> None:
-        need_nothing = {MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY}
-        for op in MnemoNetworkClient.Operation:
-            client = MnemoNetworkClient.Builder().api_key("k").base_url(self.server.url()).operation(op).build()
-            if op in need_nothing:
-                self.assert_sends(f"network {op.name}", client)
-            else:
-                self.assert_refused_before_sending(f"network {op.name}", client)
-
     def test_rag_query_checks_its_required_parameters(self) -> None:
         self.assert_refused_before_sending("rag QUERY",
                                            MnemoRAGClient.Builder().api_key("k").base_url(self.server.url()).build())
@@ -90,10 +72,6 @@ class MnemoOperationValidationTest(FakeServerTestCase):
         clients = [
             MnemoChatClient.Builder().base_url(self.server.url()).operation(MnemoChatClient.Operation.HEALTH).build(),
             MnemoRAGClient.Builder().api_key(" ").base_url(self.server.url()).rag_id("r").query("q").build(),
-            MnemoSettingsClient.Builder().base_url(self.server.url())
-            .operation(MnemoSettingsClient.Operation.GET_OPTIONS).build(),
-            MnemoNetworkClient.Builder().base_url(self.server.url())
-            .operation(MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY).build(),
         ]
         for client in clients:
             self.assertIs(MnemoError.Code.MISSING_API_KEY, self.rejection(client.execute).error.code)

@@ -1,8 +1,8 @@
 # mnemo-client (Java)
 
 Java client for the [MNEMO](https://panaxon.ai) API — the multi-tenant AI memory service from Panaxon AI.
-It lets a Java application chat with MNEMO, query MnemoRAG, manage memory subjects and sessions, change
-account settings and use memory sharing, without writing any HTTP code.
+It lets a Java application chat with MNEMO, query MnemoRAG and manage memory subjects and sessions without
+writing any HTTP code. Configuration and governance (knowledge sharing, account settings, RAG configuration) are managed in Dorothy, not through this client.
 
 - Java 17+
 - Apache License 2.0
@@ -14,7 +14,7 @@ account settings and use memory sharing, without writing any HTTP code.
 <dependency>
     <groupId>ai.panaxon</groupId>
     <artifactId>mnemo-client</artifactId>
-    <version>1.2.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
@@ -84,11 +84,8 @@ self-hosted or test deployment, and change the 120 second timeout with `.timeout
 |---|---|---|
 | `MnemoChatClient` | Chat, sessions, history, subjects, plan, health | `ChatMessageResponse`, or `Map` / `List<Map>` |
 | `MnemoRAGClient` | Ask a question against a MnemoRAG configuration (Pro / Enterprise) | `RagQueryResponse` |
-| `MnemoSettingsClient` | Read and update account settings | `SettingsResponse` |
-| `MnemoNetworkClient` | Private grants, public publishing and subscriptions, affiliations | parsed JSON (`Map` / `List`) |
 
-Every client takes an `operation(...)` from its own `Operation` enum; chat defaults to `CHAT`, RAG to `QUERY`
-and settings to `GET_SETTINGS`, while network requires one. The javadoc of each `Operation` constant lists the builder parameters it needs and the type it
+Every client takes an `operation(...)` from its own `Operation` enum; chat defaults to `CHAT` and RAG to `QUERY`. The javadoc of each `Operation` constant lists the builder parameters it needs and the type it
 returns. A missing required parameter fails before any request is made.
 
 ### Chat
@@ -122,31 +119,6 @@ if (answer.found()) {
 ```
 
 The tenant comes from your API key, so the master key cannot be used here.
-
-### Settings
-
-```java
-SettingsResponse updated = new MnemoSettingsClient.Builder()
-        .apiKey(key).accountId("acct-123")
-        .operation(MnemoSettingsClient.Operation.UPDATE_SETTINGS)
-        .lookbackDays(30)
-        .build().execute();
-```
-
-Only the settings you set are changed. `providerApiKey(...)` is your own LLM provider key; it is different
-from `apiKey(...)`, which authenticates you to MNEMO.
-
-### Network
-
-```java
-new MnemoNetworkClient.Builder()
-        .apiKey(key).tenantId("acme")
-        .operation(MnemoNetworkClient.Operation.SUBSCRIBE)
-        .counterpartTenantId("globex").subject("Roadmap")
-        .build().execute();
-```
-
-`tenantId` is always the tenant making the call; `counterpartTenantId` is the other party.
 
 ## Embed a chat in your web app
 
@@ -224,7 +196,7 @@ Answers are untrusted text: the component renders a small, safe subset of Markdo
 - *"This token cannot be used from this origin" (403)*: same cause. A server-side call that sends no `Origin` header is refused too.
 - *Token endpoint 401/403*: your own sign-in check failed, or the API key behind `EmbedTokenEndpoint` is not an ADMIN key of that tenant.
 - *The chat box never appears*: the browser blocked the script (CSP), or the element was written self-closing; custom elements need `<mnemo-chat></mnemo-chat>`.
-- *Needs client 1.2.0 and a MNEMO backend with embed tokens (live since 2026-11-14).*
+- *Needs client 1.2.0 or later and a MNEMO backend with embed tokens (live since 2026-11-14).*
 
 ## Error handling
 
@@ -249,12 +221,10 @@ any request), `NOT_FOUND`, `SERVER_ERROR`, `IO_ERROR` (service unreachable) and 
 
 ## Not supported
 
-Token-by-token streaming chat (`chat/stream`; `INIT_SESSION` does use the init event stream, but reads it to the
-end and returns the result), file ingest and OCR uploads, and the administrative endpoints (account and
-user management, API token management, billing, RAG configuration CRUD) are not part of this client.
-
-Within the network API, these calls are not covered yet: grant-removal notices, subscriber counts, changing a
-published subject's visibility, revoking an affiliation, removing a follower and affiliate removal notices.
+File ingest and OCR uploads, and everything that is configuration or governance, are not part of this client: account and
+user management, API token management, billing, account settings, knowledge sharing (the memory network) and
+MnemoRAG configuration. Those are managed in Dorothy. Version 2.0.0 removed the `MnemoSettingsClient`, the
+`MnemoNetworkClient` and the `RENAME_SESSION` operation for that reason (see the changelog).
 
 ## Building and testing
 
@@ -273,7 +243,6 @@ deployment and skip themselves unless configured through environment variables:
 | `MNEMO_TENANT_ID` | tenant that owns the token |
 | `MNEMO_IT_CHAT=true` | opt in to the chat test, which spends LLM quota |
 | `MNEMO_RAG_ID` | a RAG configuration (Pro / Enterprise) |
-| `MNEMO_ACCOUNT_ID` | an account whose settings may be read |
 
 `mvn verify` signs the artifacts with GPG, so pass `-Dgpg.skip=true` when you only want to run the tests.
 

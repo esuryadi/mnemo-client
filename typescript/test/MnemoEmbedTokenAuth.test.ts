@@ -24,7 +24,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MnemoChatClient, MnemoError, MnemoNetworkClient } from "../src/index.js";
+import { MnemoChatClient, MnemoError } from "../src/index.js";
 import { FakeMnemoServer, rejection } from "./FakeMnemoServer.js";
 
 describe("embedToken authentication", () => {
@@ -76,9 +76,9 @@ describe("embedToken authentication", () => {
     });
 
     it("works on every client", async () => {
-        server.reply(200, "[]");
-        await new MnemoNetworkClient.Builder().embedToken("t2").baseUrl(server.url()).tenantId("acme")
-            .operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS).build().execute();
+        server.reply(200, "{}");
+        await new MnemoChatClient.Builder().embedToken("t2").baseUrl(server.url()).tenantId("acme")
+            .operation(MnemoChatClient.Operation.LIST_SESSIONS).build().execute();
         expect(server.last().token).toBe("t2");
     });
 });

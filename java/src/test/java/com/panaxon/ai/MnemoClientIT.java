@@ -29,7 +29,6 @@ import com.panaxon.ai.exception.MnemoClientException;
 import com.panaxon.ai.exception.MnemoError;
 import com.panaxon.ai.model.ChatMessageResponse;
 import com.panaxon.ai.model.RagQueryResponse;
-import com.panaxon.ai.model.SettingsResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -50,7 +49,6 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  *   <li>{@code MNEMO_TENANT_ID} - the tenant that owns the token</li>
  *   <li>{@code MNEMO_IT_CHAT=true} - opt in to the chat test, which spends LLM quota</li>
  *   <li>{@code MNEMO_RAG_ID} - a RAG configuration on a Pro/Enterprise tenant</li>
- *   <li>{@code MNEMO_ACCOUNT_ID} - an account whose settings may be read</li>
  * </ul>
  */
 class MnemoClientIT {
@@ -134,21 +132,5 @@ class MnemoClientIT {
                 .build().execute();
         assertNotNull(answer);
         assertNotNull(answer.answer());
-    }
-
-    @Test
-    void settingsAreReadable() throws Exception {
-        String account = need("MNEMO_ACCOUNT_ID");
-        SettingsResponse settings = new MnemoSettingsClient.Builder().apiKey(need("MNEMO_API_KEY"))
-                .baseUrl(baseUrl()).accountId(account).build().execute();
-        assertEquals(account, settings.accountId());
-    }
-
-    @Test
-    void publicRegistryIsBrowsable() throws Exception {
-        Object registry = new MnemoNetworkClient.Builder().apiKey(need("MNEMO_API_KEY")).baseUrl(baseUrl())
-                .tenantId(need("MNEMO_TENANT_ID")).operation(MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY)
-                .size(5).build().execute();
-        assertNotNull(registry);
     }
 }

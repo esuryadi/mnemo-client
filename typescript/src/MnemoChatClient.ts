@@ -83,8 +83,6 @@ export namespace MnemoChatClient {
         LIST_SESSIONS = "LIST_SESSIONS",
         /** One page of a session's history, newest first; needs tenantId, sessionId, optional before/size. Resolves with {@code JsonObject}. */
         GET_HISTORY = "GET_HISTORY",
-        /** Renames a session; needs tenantId, sessionId, sessionName. Resolves with {@code JsonObject}. */
-        RENAME_SESSION = "RENAME_SESSION",
         /** Closes a session, or deletes it when {@code permanent}; needs tenantId, sessionId. Resolves with {@code null}. */
         CLOSE_SESSION = "CLOSE_SESSION",
         /** Lists the tenant's memory subjects; needs tenantId. Resolves with {@code JsonObject[]}. */
@@ -132,7 +130,7 @@ export namespace MnemoChatClient {
             return this;
         }
 
-        /** The name for {@code INIT_SESSION} (optional), or the new name for {@code RENAME_SESSION}. */
+        /** The name for {@code INIT_SESSION} (optional). */
         sessionName(sessionName: string): this {
             this._sessionName = sessionName;
             return this;

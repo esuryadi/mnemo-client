@@ -115,20 +115,6 @@ export interface RagQueryResponse {
     groundedness?: Groundedness | null;
 }
 
-/** An account's MNEMO settings. The provider API key is never returned, only whether one is stored. */
-export interface SettingsResponse {
-    accountId?: string | null;
-    provider?: string | null;
-    model?: string | null;
-    ingestModel?: string | null;
-    hasApiKey: boolean;
-    lookbackDays: number;
-    encryptData: boolean;
-    sharedMemoryTtlHours: number;
-    /** ISO-8601 timestamp. */
-    updatedAt?: string | null;
-}
-
 /** A short-lived token a browser can use for chat (result of {@code MnemoEmbedClient.Operation.MINT_TOKEN}). */
 export interface EmbedToken {
     /** Sent by the browser as {@code X-Mnemo-Api-Token}; safe to hand to one visitor, never the API key. */

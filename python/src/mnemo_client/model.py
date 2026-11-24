@@ -21,7 +21,7 @@
 # Author: edward.suryadi
 # Since: Oct-2026
 
-"""Typed responses for the core calls (chat, RAG, settings).
+"""Typed responses for the core calls (chat, RAG).
 
 Attribute names are the snake_case form of the service's JSON fields. Fields this client does not know about are
 ignored and missing ones take their default, so a newer service never breaks an older client.
@@ -190,29 +190,6 @@ class RagQueryResponse:
                    subjects_used=list(data.get("subjectsUsed") or []),
                    token_usage=TokenUsage.from_dict(data.get("tokenUsage")), reason=data.get("reason"),
                    explanation=data.get("explanation"), groundedness=Groundedness.from_dict(data.get("groundedness")))
-
-
-@dataclass(frozen=True)
-class SettingsResponse:
-    """An account's MNEMO settings. The provider API key is never returned, only whether one is stored."""
-
-    account_id: Optional[str] = None
-    provider: Optional[str] = None
-    model: Optional[str] = None
-    ingest_model: Optional[str] = None
-    has_api_key: bool = False
-    lookback_days: int = 0
-    encrypt_data: bool = False
-    shared_memory_ttl_hours: int = 0
-    updated_at: Optional[datetime] = None
-
-    @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> SettingsResponse:
-        return cls(account_id=data.get("accountId"), provider=data.get("provider"), model=data.get("model"),
-                   ingest_model=data.get("ingestModel"), has_api_key=bool(data.get("hasApiKey")),
-                   lookback_days=data.get("lookbackDays") or 0, encrypt_data=bool(data.get("encryptData")),
-                   shared_memory_ttl_hours=data.get("sharedMemoryTtlHours") or 0,
-                   updated_at=_instant(data.get("updatedAt")))
 
 
 @dataclass(frozen=True)

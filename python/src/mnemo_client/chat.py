@@ -82,8 +82,6 @@ class MnemoChatClient(MnemoClient):
         GET_HISTORY = "GET_HISTORY"
         """One page of a session's history, newest first; needs tenant_id, session_id, optional before/size.
         Returns ``dict``."""
-        RENAME_SESSION = "RENAME_SESSION"
-        """Renames a session; needs tenant_id, session_id, session_name. Returns ``dict``."""
         CLOSE_SESSION = "CLOSE_SESSION"
         """Closes a session, or deletes it when ``permanent``; needs tenant_id, session_id. Returns ``None``."""
         LIST_SUBJECTS = "LIST_SUBJECTS"
@@ -132,7 +130,7 @@ class MnemoChatClient(MnemoClient):
             return self
 
         def session_name(self, session_name: str) -> MnemoChatClient.Builder:
-            """The name for ``INIT_SESSION`` (optional), or the new name for ``RENAME_SESSION``."""
+            """The name for ``INIT_SESSION`` (optional)."""
             self._session_name = session_name
             return self
 

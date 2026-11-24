@@ -24,11 +24,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { MnemoError, MnemoNetworkClient } from "../src/index.js";
+import { MnemoError, MnemoChatClient } from "../src/index.js";
 import { FakeMnemoServer, rejection } from "./FakeMnemoServer.js";
 
 const TOKEN_PATH = "/oauth/token";
-const LIST_PATH = "/mnemo/network/sharing/private";
+const LIST_PATH = "/mnemo/sessions";
 const token = (value: string, expiresIn = 3600) =>
     `{"access_token":"${value}","token_type":"Bearer","expires_in":${expiresIn}}`;
 
@@ -43,8 +43,8 @@ describe("client credentials", () => {
         await server.close();
     });
 
-    const builder = () => new MnemoNetworkClient.Builder().clientCredentials("mnemo_cid_1", "mnemo_cs_1")
-        .baseUrl(server.url()).tenantId("acme").operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS);
+    const builder = () => new MnemoChatClient.Builder().clientCredentials("mnemo_cid_1", "mnemo_cs_1")
+        .baseUrl(server.url()).tenantId("acme").operation(MnemoChatClient.Operation.LIST_SESSIONS);
     const apiCalls = () => server.requests.filter((r) => r.path !== TOKEN_PATH);
 
     it("exchanges the credentials and sends the bearer token", async () => {
@@ -123,8 +123,8 @@ describe("client credentials", () => {
     });
 
     it("an id without a secret is refused", async () => {
-        const b = new MnemoNetworkClient.Builder().clientCredentials("mnemo_cid_1", " ").baseUrl(server.url())
-            .tenantId("acme").operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS);
+        const b = new MnemoChatClient.Builder().clientCredentials("mnemo_cid_1", " ").baseUrl(server.url())
+            .tenantId("acme").operation(MnemoChatClient.Operation.LIST_SESSIONS);
         const e = await rejection(() => b.build().execute());
         expect(e.error.code).toBe(MnemoError.Code.INVALID_REQUEST);
         expect(server.count()).toBe(0);
@@ -132,8 +132,8 @@ describe("client credentials", () => {
 
     it("an api key still uses the token header and no exchange", async () => {
         server.reply(200, "[]");
-        await new MnemoNetworkClient.Builder().apiKey("tok-1").baseUrl(server.url()).tenantId("acme")
-            .operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS).build().execute();
+        await new MnemoChatClient.Builder().apiKey("tok-1").baseUrl(server.url()).tenantId("acme")
+            .operation(MnemoChatClient.Operation.LIST_SESSIONS).build().execute();
         expect(server.last().token).toBe("tok-1");
         expect(server.last().authorization).toBeUndefined();
         expect(server.count()).toBe(1);

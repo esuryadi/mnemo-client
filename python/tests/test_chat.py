@@ -180,14 +180,6 @@ class MnemoChatClientTest(FakeServerTestCase):
         self.assertEqual("DELETE", self.server.last().method)
         self.assertEqual("/mnemo/subject/Q3%20plan%2F2026", self.server.last().raw_path)
 
-    def test_rename_session_uses_patch(self) -> None:
-        self.server.reply(200, '{"sessionName":"Trip"}')
-        result = self.builder().operation(Op.RENAME_SESSION).session_id("s1").session_name("Trip").build().execute()
-        self.assertEqual("Trip", result["sessionName"])
-        self.assertEqual("PATCH", self.server.last().method)
-        self.assertEqual("/mnemo/sessions/s1/name", self.server.last().path)
-        self.assertEqual({"tenantId": "acme", "sessionName": "Trip"}, json.loads(self.server.last().body))
-
     def test_close_session_always_passes_the_permanent_flag_in_lower_case(self) -> None:
         self.server.reply(204, "")
         self.builder().operation(Op.CLOSE_SESSION).session_id("s1").permanent(True).build().execute()

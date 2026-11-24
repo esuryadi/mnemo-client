@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.0 (2026-11-24)
+
+Breaking: the client libraries now cover the data plane of the MNEMO API only. Configuration and governance live in Dorothy and are no longer reachable with an API key or an OAuth client-credentials token (the service answers 403), so the calls that exercised them were removed in Java, TypeScript and Python.
+
+- **Removed `MnemoNetworkClient`** (knowledge sharing: private grants, public publishing, subscriptions, affiliations, tenant search) and its operations, builder parameters and tests. Knowledge sharing is managed in Dorothy.
+- **Removed `MnemoSettingsClient`** and the `SettingsResponse` model (account settings and their options). Settings are managed in Dorothy.
+- **Removed `MnemoChatClient.Operation.RENAME_SESSION`**. Renaming a session is a Dorothy feature; `sessionName` is still accepted by `INIT_SESSION`.
+- The client libraries never had RAG configuration management, OCR or notifications helpers, so nothing was removed there: `MnemoRAGClient` keeps `QUERY` (create the configuration in Dorothy and pass its id).
+- Kept: chat and chat streaming, sessions (init, list, history, close), subjects, plan, health, MnemoRAG queries, the embed helpers and `MnemoEmbedClient`, and `clientCredentials` (the OAuth client-credentials exchange at `/oauth/token`, now documented in the API reference).
+- The bundled `mnemo-chat.js` is rebuilt without the removed operation (the same file in all three packages).
+- Migration: delete the calls to `MnemoNetworkClient`, `MnemoSettingsClient` and `RENAME_SESSION`; use Dorothy for those tasks. Version 1.x clients keep working for the data plane; their Network and Settings calls start returning 403 once the service change is live.
+
 ## 1.2.0 (2026-11-14)
 
 - **Embeddable chat.** `<mnemo-chat>`: one script tag and one element put a MNEMO chat in your own web page. The component is bundled in all three packages (`embed/mnemo-chat.js`; the npm package also serves it through jsDelivr).

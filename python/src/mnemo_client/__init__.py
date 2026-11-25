@@ -40,15 +40,12 @@ from .model import (
     Groundedness,
     RagQueryResponse,
     ResponseTiming,
-    SettingsResponse,
     StreamEvent,
     TokenUsage,
 )
-from .network import MnemoNetworkClient
 from .rag import MnemoRAGClient
-from .settings import MnemoSettingsClient
 
-__version__ = "1.2.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "Attachment",
@@ -64,12 +61,9 @@ __all__ = [
     "MnemoClientFactory",
     "MnemoEmbedClient",
     "MnemoError",
-    "MnemoNetworkClient",
     "MnemoRAGClient",
-    "MnemoSettingsClient",
     "RagQueryResponse",
     "ResponseTiming",
-    "SettingsResponse",
     "StreamEvent",
     "TokenUsage",
 ]

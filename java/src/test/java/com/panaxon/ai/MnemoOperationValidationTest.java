@@ -87,26 +87,6 @@ class MnemoOperationValidationTest {
     }
 
     @Test
-    void everySettingsOperationChecksItsRequiredParameters() throws Exception {
-        Set<MnemoSettingsClient.Operation> needNothing = EnumSet.of(MnemoSettingsClient.Operation.GET_OPTIONS);
-        for (MnemoSettingsClient.Operation op : MnemoSettingsClient.Operation.values()) {
-            MnemoClient client = new MnemoSettingsClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build();
-            if (needNothing.contains(op)) assertSends("settings " + op, client);
-            else assertRefusedBeforeSending("settings " + op, client);
-        }
-    }
-
-    @Test
-    void everyNetworkOperationChecksItsRequiredParameters() throws Exception {
-        Set<MnemoNetworkClient.Operation> needNothing = EnumSet.of(MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY);
-        for (MnemoNetworkClient.Operation op : MnemoNetworkClient.Operation.values()) {
-            MnemoClient client = new MnemoNetworkClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build();
-            if (needNothing.contains(op)) assertSends("network " + op, client);
-            else assertRefusedBeforeSending("network " + op, client);
-        }
-    }
-
-    @Test
     void ragQueryChecksItsRequiredParameters() {
         assertRefusedBeforeSending("rag QUERY", new MnemoRAGClient.Builder().apiKey("k").baseUrl(server.url()).build());
     }
@@ -121,8 +101,7 @@ class MnemoOperationValidationTest {
     void aMissingOrBlankApiKeyOrEndpointIsRefusedForEveryClient() {
         for (MnemoClient client : new MnemoClient[] {
                 new MnemoChatClient.Builder().baseUrl(server.url()).operation(MnemoChatClient.Operation.HEALTH).build(),
-                new MnemoRAGClient.Builder().apiKey(" ").baseUrl(server.url()).ragId("r").query("q").build(),
-                new MnemoSettingsClient.Builder().baseUrl(server.url()).operation(MnemoSettingsClient.Operation.GET_OPTIONS).build()}) {
+                new MnemoRAGClient.Builder().apiKey(" ").baseUrl(server.url()).ragId("r").query("q").build()}) {
             MnemoClientException e = assertThrows(MnemoClientException.class, client::execute);
             assertEquals(MnemoError.Code.MISSING_API_KEY, e.getError().code());
         }

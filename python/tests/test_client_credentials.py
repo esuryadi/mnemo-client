@@ -28,13 +28,13 @@ from __future__ import annotations
 import base64
 import threading
 
-from mnemo_client import MnemoError, MnemoNetworkClient
+from mnemo_client import MnemoError, MnemoChatClient
 
 from fake_server import FakeServerTestCase
 
 TOKEN_PATH = "/oauth/token"
-LIST_PATH = "/mnemo/network/sharing/private"
-OP = MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS
+LIST_PATH = "/mnemo/sessions"
+OP = MnemoChatClient.Operation.LIST_SESSIONS
 
 
 def token(value: str, expires_in: int = 3600) -> str:
@@ -43,8 +43,8 @@ def token(value: str, expires_in: int = 3600) -> str:
 
 class ClientCredentialsTest(FakeServerTestCase):
 
-    def builder(self) -> MnemoNetworkClient.Builder:
-        return MnemoNetworkClient.Builder().client_credentials("mnemo_cid_1", "mnemo_cs_1") \
+    def builder(self) -> MnemoChatClient.Builder:
+        return MnemoChatClient.Builder().client_credentials("mnemo_cid_1", "mnemo_cs_1") \
             .base_url(self.server.url()).tenant_id("acme").operation(OP)
 
     def api_calls(self):
@@ -112,14 +112,14 @@ class ClientCredentialsTest(FakeServerTestCase):
         self.assertEqual(0, self.server.count())
 
     def test_an_id_without_a_secret_is_refused(self) -> None:
-        b = MnemoNetworkClient.Builder().client_credentials("mnemo_cid_1", " ").base_url(self.server.url())
+        b = MnemoChatClient.Builder().client_credentials("mnemo_cid_1", " ").base_url(self.server.url())
         e = self.rejection(b.tenant_id("acme").operation(OP).build().execute)
         self.assertEqual(MnemoError.Code.INVALID_REQUEST, e.error.code)
         self.assertEqual(0, self.server.count())
 
     def test_an_api_key_still_uses_the_token_header_and_no_exchange(self) -> None:
         self.server.reply(200, "[]")
-        MnemoNetworkClient.Builder().api_key("tok-1").base_url(self.server.url()).tenant_id("acme") \
+        MnemoChatClient.Builder().api_key("tok-1").base_url(self.server.url()).tenant_id("acme") \
             .operation(OP).build().execute()
         self.assertEqual("tok-1", self.server.last().token)
         self.assertIsNone(self.server.last().authorization)

@@ -32,9 +32,7 @@ import {
     MnemoClientException,
     MnemoEmbedClient,
     MnemoError,
-    MnemoNetworkClient,
     MnemoRAGClient,
-    MnemoSettingsClient,
 } from "@panaxon/mnemo-client";
 
 let failures = 0;
@@ -51,10 +49,8 @@ const baseUrl = process.env.MNEMO_BASE_URL;
 const built: MnemoClient[] = [
     new MnemoChatClient.Builder().apiKey("k").build(),
     new MnemoRAGClient.Builder().apiKey("k").build(),
-    new MnemoSettingsClient.Builder().apiKey("k").build(),
-    new MnemoNetworkClient.Builder().apiKey("k").build(),
 ];
-check("all four clients build", built.length === 4);
+check("both clients build", built.length === 2);
 
 // a missing parameter is refused locally, with the structured error
 try {

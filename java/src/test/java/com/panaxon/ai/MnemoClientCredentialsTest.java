@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MnemoClientCredentialsTest {
     private static final String TOKEN_PATH = "/oauth/token";
-    private static final String LIST_PATH = "/mnemo/network/sharing/private";
+    private static final String LIST_PATH = "/mnemo/sessions";
     private static final Reply UNAUTHORIZED = new Reply(401, "{\"error\":\"Unauthorized\"}");
     private FakeMnemoServer server;
 
@@ -59,9 +59,9 @@ class MnemoClientCredentialsTest {
         return new Reply(200, "{\"access_token\":\"" + value + "\",\"token_type\":\"Bearer\",\"expires_in\":" + expiresIn + "}");
     }
 
-    private MnemoNetworkClient.Builder builder() {
-        return new MnemoNetworkClient.Builder().clientCredentials("mnemo_cid_1", "mnemo_cs_1").baseUrl(server.url())
-                .tenantId("acme").operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS);
+    private MnemoChatClient.Builder builder() {
+        return new MnemoChatClient.Builder().clientCredentials("mnemo_cid_1", "mnemo_cs_1").baseUrl(server.url())
+                .tenantId("acme").operation(MnemoChatClient.Operation.LIST_SESSIONS);
     }
 
     private List<FakeMnemoServer.Received> apiCalls() {
@@ -173,8 +173,8 @@ class MnemoClientCredentialsTest {
 
     @Test
     void anIdWithoutASecretIsRefused() {
-        MnemoNetworkClient.Builder b = new MnemoNetworkClient.Builder().clientCredentials("mnemo_cid_1", " ")
-                .baseUrl(server.url()).tenantId("acme").operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS);
+        MnemoChatClient.Builder b = new MnemoChatClient.Builder().clientCredentials("mnemo_cid_1", " ")
+                .baseUrl(server.url()).tenantId("acme").operation(MnemoChatClient.Operation.LIST_SESSIONS);
         MnemoClientException e = assertThrows(MnemoClientException.class, () -> b.build().execute());
         assertEquals(MnemoError.Code.INVALID_REQUEST, e.getError().code());
         assertEquals(0, server.count());
@@ -183,8 +183,8 @@ class MnemoClientCredentialsTest {
     @Test
     void anApiKeyStillUsesTheTokenHeaderAndNoExchange() throws Exception {
         server.reply(200, "{}");
-        new MnemoNetworkClient.Builder().apiKey("tok-1").baseUrl(server.url()).tenantId("acme")
-                .operation(MnemoNetworkClient.Operation.LIST_PRIVATE_GRANTS).build().execute();
+        new MnemoChatClient.Builder().apiKey("tok-1").baseUrl(server.url()).tenantId("acme")
+                .operation(MnemoChatClient.Operation.LIST_SESSIONS).build().execute();
         assertEquals("tok-1", server.last().token());
         assertNull(server.last().authorization());
         assertEquals(1, server.count());

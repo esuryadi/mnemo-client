@@ -49,7 +49,7 @@ Described in Java terms (`switch`, package-private, records); `typescript/CLAUDE
    a `switch` case, any new builder parameters, and a test. The client interface and `execute()` do not change.
 4. Builder getters are package-private; setters are public and fluent. `MnemoClientBuilder` is self-typed
    (`<B extends MnemoClientBuilder<B>>`) so `.apiKey()` etc. chain into subclass setters — implement `self()`.
-5. Response types: typed records in `com.panaxon.ai.model` for the core calls (chat, RAG, settings); other calls
+5. Response types: typed records in `com.panaxon.ai.model` for the core calls (chat, RAG); other calls
    return `Map` / `List<Map>` / `Object` parsed JSON. Document the return type on each `Operation` constant.
 
 ## Embed chat (1.2.0)

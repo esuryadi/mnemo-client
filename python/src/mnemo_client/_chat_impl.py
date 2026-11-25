@@ -53,7 +53,6 @@ class MnemoChatClientImpl(AbstractMnemoClient, MnemoChatClient):
             Op.CHAT: self._chat,
             Op.LIST_SESSIONS: self._list_sessions,
             Op.GET_HISTORY: self._get_history,
-            Op.RENAME_SESSION: self._rename_session,
             Op.CLOSE_SESSION: self._close_session,
             Op.LIST_SUBJECTS: self._list_subjects,
             Op.DELETE_SUBJECT: self._delete_subject,
@@ -119,12 +118,6 @@ class MnemoChatClientImpl(AbstractMnemoClient, MnemoChatClient):
                                               id=_require(b._session_id, "session_id")),
                                         tenantId=_require(self._tenant_id(), "tenant_id"), before=b._before,
                                         size=b._size))
-
-    def _rename_session(self, base: str) -> Dict[str, Any]:
-        b = self._builder
-        return self._send("PATCH", _path(base, "mnemo/sessions/{id}/name", id=_require(b._session_id, "session_id")),
-                          _body(tenantId=_require(self._tenant_id(), "tenant_id"),
-                                sessionName=_require(b._session_name, "session_name")))
 
     def _close_session(self, base: str) -> None:
         b = self._builder

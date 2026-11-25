@@ -29,9 +29,7 @@ import {
     MnemoChatClient,
     MnemoEmbedClient,
     MnemoError,
-    MnemoNetworkClient,
     MnemoRAGClient,
-    MnemoSettingsClient,
 } from "../src/index.js";
 import { FakeMnemoServer, rejection } from "./FakeMnemoServer.js";
 
@@ -80,24 +78,6 @@ describe("operation validation", () => {
         }
     });
 
-    it("every settings operation checks its required parameters", async () => {
-        const needNothing = new Set([MnemoSettingsClient.Operation.GET_OPTIONS]);
-        for (const op of Object.values(MnemoSettingsClient.Operation)) {
-            const client = new MnemoSettingsClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build();
-            if (needNothing.has(op)) await assertSends(`settings ${op}`, client);
-            else await assertRefusedBeforeSending(`settings ${op}`, client);
-        }
-    });
-
-    it("every network operation checks its required parameters", async () => {
-        const needNothing = new Set([MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY]);
-        for (const op of Object.values(MnemoNetworkClient.Operation)) {
-            const client = new MnemoNetworkClient.Builder().apiKey("k").baseUrl(server.url()).operation(op).build();
-            if (needNothing.has(op)) await assertSends(`network ${op}`, client);
-            else await assertRefusedBeforeSending(`network ${op}`, client);
-        }
-    });
-
     it("rag query checks its required parameters", async () => {
         await assertRefusedBeforeSending("rag QUERY", new MnemoRAGClient.Builder().apiKey("k").baseUrl(server.url()).build());
     });
@@ -111,10 +91,6 @@ describe("operation validation", () => {
         const clients: MnemoClient[] = [
             new MnemoChatClient.Builder().baseUrl(server.url()).operation(MnemoChatClient.Operation.HEALTH).build(),
             new MnemoRAGClient.Builder().apiKey(" ").baseUrl(server.url()).ragId("r").query("q").build(),
-            new MnemoSettingsClient.Builder().baseUrl(server.url())
-                .operation(MnemoSettingsClient.Operation.GET_OPTIONS).build(),
-            new MnemoNetworkClient.Builder().baseUrl(server.url())
-                .operation(MnemoNetworkClient.Operation.BROWSE_PUBLIC_REGISTRY).build(),
         ];
         for (const client of clients) {
             expect((await rejection(() => client.execute())).error.code).toBe(MnemoError.Code.MISSING_API_KEY);

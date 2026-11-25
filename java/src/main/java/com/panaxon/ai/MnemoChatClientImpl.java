@@ -72,7 +72,6 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
             case CHAT -> chat(base);
             case LIST_SESSIONS -> listSessions(base);
             case GET_HISTORY -> getHistory(base);
-            case RENAME_SESSION -> renameSession(base);
             case CLOSE_SESSION -> closeSession(base);
             case LIST_SUBJECTS -> listSubjects(base);
             case DELETE_SUBJECT -> deleteSubject(base);
@@ -151,13 +150,6 @@ class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoChatClient
                 .resolveTemplate("id", require(builder.sessionId(), "sessionId")),
                 "tenantId", require(tenantId(), "tenantId"), "before", builder.before(),
                 "size", builder.size()), null, MAP);
-    }
-
-    private Map<String, Object> renameSession(WebTarget base) throws MnemoClientException {
-        return send("PATCH", base.path("mnemo/sessions/{id}/name")
-                .resolveTemplate("id", require(builder.sessionId(), "sessionId")),
-                body("tenantId", require(tenantId(), "tenantId"),
-                        "sessionName", require(builder.sessionName(), "sessionName")), MAP);
     }
 
     private Object closeSession(WebTarget base) throws MnemoClientException {

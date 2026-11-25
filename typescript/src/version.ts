@@ -24,4 +24,4 @@
  */
 
 /** The version of this client, as in {@code package.json}; a test keeps the two equal. Used in the default script URL of the embed snippet. */
-export const CLIENT_VERSION = "1.2.0";
+export const CLIENT_VERSION = "2.0.0";

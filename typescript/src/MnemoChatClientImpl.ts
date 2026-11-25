@@ -56,7 +56,6 @@ export class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoCha
                 case Op.CHAT_STREAM: return this.chatStream(base);
                 case Op.LIST_SESSIONS: return this.listSessions(base);
                 case Op.GET_HISTORY: return this.getHistory(base);
-                case Op.RENAME_SESSION: return this.renameSession(base);
                 case Op.CLOSE_SESSION: return this.closeSession(base);
                 case Op.LIST_SUBJECTS: return this.listSubjects(base);
                 case Op.DELETE_SUBJECT: return this.deleteSubject(base);
@@ -126,15 +125,6 @@ export class MnemoChatClientImpl extends AbstractMnemoClient implements MnemoCha
             tenantId: require(this.tenantId(), "tenantId"), before: this.builder._before,
             size: this.builder._size,
         }));
-    }
-
-    private renameSession(base: string): Promise<JsonObject> {
-        return this.send("PATCH", path(base, "mnemo/sessions/{id}/name",
-            { id: require(this.builder._sessionId, "sessionId") }),
-            body({
-                tenantId: require(this.tenantId(), "tenantId"),
-                sessionName: require(this.builder._sessionName, "sessionName"),
-            }));
     }
 
     private closeSession(base: string): Promise<null> {

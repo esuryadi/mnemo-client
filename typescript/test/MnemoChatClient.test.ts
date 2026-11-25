@@ -180,16 +180,6 @@ describe("MnemoChatClient", () => {
         expect(server.last().rawPath).toBe("/mnemo/subject/Q3%20plan%2F2026");
     });
 
-    it("rename session uses PATCH", async () => {
-        server.reply(200, `{"sessionName":"Trip"}`);
-        const result = await builder().operation(Op.RENAME_SESSION).sessionId("s1").sessionName("Trip")
-            .build().execute<JsonObject>();
-        expect(result.sessionName).toBe("Trip");
-        expect(server.last().method).toBe("PATCH");
-        expect(server.last().path).toBe("/mnemo/sessions/s1/name");
-        expect(JSON.parse(server.last().body)).toEqual({ tenantId: "acme", sessionName: "Trip" });
-    });
-
     it("close session always passes the permanent flag", async () => {
         server.reply(204, "");
         await builder().operation(Op.CLOSE_SESSION).sessionId("s1").permanent(true).build().execute();

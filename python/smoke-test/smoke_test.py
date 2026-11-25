@@ -29,7 +29,7 @@ import sys
 import hashlib
 
 from mnemo_client import (EmbedSnippet, MnemoChatClient, MnemoClient, MnemoClientException, MnemoEmbedClient, MnemoError,
-                          MnemoNetworkClient, MnemoRAGClient, MnemoSettingsClient, __version__)
+                          MnemoRAGClient, __version__)
 from mnemo_client.embed_helpers import bundled_script
 
 failures = 0
@@ -47,10 +47,8 @@ base_url = os.environ.get("MNEMO_BASE_URL")
 
 # every client can be built from its public builder, and only the interface type is needed
 built = [MnemoChatClient.Builder().api_key("k").build(),
-         MnemoRAGClient.Builder().api_key("k").build(),
-         MnemoSettingsClient.Builder().api_key("k").build(),
-         MnemoNetworkClient.Builder().api_key("k").build()]
-check("all four clients build", len(built) == 4 and all(isinstance(c, MnemoClient) for c in built))
+         MnemoRAGClient.Builder().api_key("k").build()]
+check("both clients build", len(built) == 2 and all(isinstance(c, MnemoClient) for c in built))
 
 # a missing parameter is refused locally, with the structured error
 try:

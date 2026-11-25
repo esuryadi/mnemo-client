@@ -13,6 +13,8 @@ The full API reference, with a Try it for every call and written guides, is in t
 
 All three share one version number, so the same version gives you the same operations in every language.
 
+The clients cover the data plane of the API: chat and sessions, subjects, plan and usage, MnemoRAG queries, the embeddable chat and OAuth client credentials. Configuration and governance (knowledge sharing, account settings, RAG configuration) happen in Dorothy and are not part of the clients; version 2.0.0 removed the former Network and Settings clients (see the [changelog](CHANGELOG.md)).
+
 ## Install
 
 **Java** (17+), from Maven Central:
@@ -21,11 +23,11 @@ All three share one version number, so the same version gives you the same opera
 <dependency>
     <groupId>ai.panaxon</groupId>
     <artifactId>mnemo-client</artifactId>
-    <version>1.2.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
-or with Gradle: `implementation("ai.panaxon:mnemo-client:1.2.0")`
+or with Gradle: `implementation("ai.panaxon:mnemo-client:2.0.0")`
 
 **TypeScript / JavaScript** (Node 18+), from npm:
 

@@ -1,8 +1,9 @@
 # mnemo-client (Python)
 
 Python client for the [MNEMO](https://panaxon.ai) API, the multi-tenant AI memory service from Panaxon AI. It lets
-a Python application chat with MNEMO, query MnemoRAG, manage memory subjects and sessions, change account settings
-and use memory sharing, without writing any HTTP code.
+a Python application chat with MNEMO, query MnemoRAG, and manage memory subjects and sessions without writing
+any HTTP code. Configuration and governance (knowledge sharing, account settings, RAG configuration) are managed in
+Dorothy, not through this client.
 
 - Python 3.9+
 - No runtime dependencies (HTTP through the standard library's `urllib`)
@@ -23,7 +24,7 @@ uv add mnemo-client
 poetry add mnemo-client
 ```
 
-To pin a version, put `mnemo-client==1.2.0` in `requirements.txt` (or `mnemo-client>=1.2,<2` to take compatible
+To pin a version, put `mnemo-client==2.0.0` in `requirements.txt` (or `mnemo-client>=2,<3` to take compatible
 updates). The package has no dependencies outside the standard library.
 
 The package you install is `mnemo-client`, with a dash; the module you import is `mnemo_client`, with an underscore:
@@ -106,15 +107,13 @@ deployment, override it with `.base_url(...)`. The timeout is 120 seconds by def
 |---|---|---|
 | `MnemoChatClient` | Chat, sessions, history, subjects, plan, health | `ChatMessageResponse`, or `dict` / `list` |
 | `MnemoRAGClient` | Ask a question against a MnemoRAG configuration (Pro / Enterprise) | `RagQueryResponse` |
-| `MnemoSettingsClient` | Read and update account settings | `SettingsResponse` |
-| `MnemoNetworkClient` | Private grants, public publishing and subscriptions, affiliations | parsed JSON (`dict` / `list`) |
 
-Every client takes an `operation(...)` from its own `Operation` enum. The defaults are `CHAT` for chat, `QUERY`
-for RAG and `GET_SETTINGS` for settings. Network has no default, so you must set one. The docstring of each
+Every client takes an `operation(...)` from its own `Operation` enum. The defaults are `CHAT` for chat and `QUERY`
+for RAG. The docstring of each
 `Operation` member lists the builder parameters it needs and the type it returns. A missing required parameter
 fails before any request is made.
 
-The typed models (`ChatMessageResponse`, `RagQueryResponse`, `SettingsResponse`, ...) are frozen dataclasses. Their
+The typed models (`ChatMessageResponse`, `RagQueryResponse`, ...) are frozen dataclasses. Their
 attributes are the snake_case form of the JSON fields (`total_ms`, `last_updated`), and their timestamps are
 `datetime` objects. Calls without a typed model return the parsed JSON, whose keys stay camelCase as the service
 sends them.
@@ -149,31 +148,6 @@ if answer.found:
 ```
 
 The tenant comes from your API key, so the master key cannot be used here.
-
-### Settings
-
-```python
-updated = (MnemoSettingsClient.Builder()
-    .api_key(key).account_id("acct-123")
-    .operation(MnemoSettingsClient.Operation.UPDATE_SETTINGS)
-    .lookback_days(30)
-    .build().execute())
-```
-
-Only the settings you set are changed. `provider_api_key(...)` is your own LLM provider key. It is not the same as
-`api_key(...)`, which authenticates you to MNEMO.
-
-### Network
-
-```python
-(MnemoNetworkClient.Builder()
-    .api_key(key).tenant_id("acme")
-    .operation(MnemoNetworkClient.Operation.SUBSCRIBE)
-    .counterpart_tenant_id("globex").subject("Roadmap")
-    .build().execute())
-```
-
-`tenant_id` is always the tenant making the call; `counterpart_tenant_id` is the other party.
 
 ## Embed a chat in your web app
 
@@ -269,7 +243,7 @@ Answers are untrusted text: the component renders a small, safe subset of Markdo
 - *"This token cannot be used from this origin" (403)*: same cause. A server-side call that sends no `Origin` header is refused too.
 - *Token endpoint 401/403*: your own sign-in check failed, or the API key behind `EmbedTokenEndpoint` is not an ADMIN key of that tenant.
 - *The chat box never appears*: the browser blocked the script (CSP), or the element was written self-closing; custom elements need `<mnemo-chat></mnemo-chat>`.
-- *Needs client 1.2.0 and a MNEMO backend with embed tokens (live since 2026-11-14).*
+- *Needs client 1.2.0 or later and a MNEMO backend with embed tokens (live since 2026-11-14).*
 
 ## Error handling
 
@@ -309,10 +283,10 @@ This client does not cover:
 - Token-by-token streaming chat (`chat/stream`). `INIT_SESSION` does use the init event stream, but reads it to the
   end and returns the result.
 - File ingest and OCR uploads.
-- The administrative endpoints: account and user management, API token management, billing, and RAG configuration
-  CRUD.
-
-The same network calls as in the Java client are not covered yet.
+- Configuration and governance, which are managed in Dorothy: account and user management, API token management,
+  billing, account settings, knowledge sharing (the memory network) and MnemoRAG configuration. Version 2.0.0
+  removed `MnemoSettingsClient`, `MnemoNetworkClient` and the `RENAME_SESSION` operation for that reason (see the
+  changelog).
 
 ## Building and testing
 
